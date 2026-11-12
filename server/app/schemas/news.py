@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class NewsArticleBase(BaseModel):
@@ -27,10 +27,14 @@ class NewsArticleOut(NewsArticleBase):
     id: int
     fetched_at: Optional[datetime] = None
     created_at: datetime
+    thailand_relevance: Optional[str] = None
+    relevance_reason: Optional[str] = None
+    language: Optional[str] = None
 
 
 class NewsIngestSourceResult(BaseModel):
     name: str
+    publisher: Optional[str] = None
     url: str
     type: Optional[str] = None
     http_status: Optional[int] = None
@@ -40,6 +44,7 @@ class NewsIngestSourceResult(BaseModel):
     skipped: int = 0
     error: Optional[str] = None
     final_status: str
+    last_successful_ingestion_at: Optional[datetime] = None
 
 
 class NewsIngestStats(BaseModel):
@@ -57,3 +62,4 @@ __all__ = [
     "NewsIngestSourceResult",
     "NewsIngestStats",
 ]
+

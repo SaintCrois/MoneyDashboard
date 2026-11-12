@@ -24,6 +24,12 @@ class NewsArticle(Base):
     )
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Thailand relevance classification and language metadata (additive).
+    thailand_relevance: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True
+    )  # Thailand-focused | Thailand-related | International | Uncertain
+    relevance_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    language: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -36,3 +42,4 @@ class NewsArticle(Base):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<NewsArticle(id={self.id}, title={self.title!r})>"
+

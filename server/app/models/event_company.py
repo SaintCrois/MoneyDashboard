@@ -1,8 +1,9 @@
 """EventCompany model: connects events with potentially affected companies."""
 
+from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -24,6 +25,15 @@ class EventCompany(Base):
         Numeric(5, 2), nullable=True
     )
     explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Traceable matching metadata (additive).
+    match_confidence: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True
+    )  # High | Medium | Low
+    match_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    evidence: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("event_id", "company_id", name="uq_event_company"),
@@ -31,3 +41,4 @@ class EventCompany(Base):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<EventCompany(event_id={self.event_id}, company_id={self.company_id})>"
+

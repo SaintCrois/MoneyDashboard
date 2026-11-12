@@ -1,5 +1,6 @@
 """Event-to-industry and event-to-company mapping schemas."""
 
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -45,6 +46,10 @@ class EventCompanyBase(BaseModel):
         default=None, description="Relevance or confidence score"
     )
     explanation: Optional[str] = Field(default=None, description="Mapping explanation")
+    match_confidence: Optional[str] = Field(default=None, description="High, Medium, or Low")
+    match_reason: Optional[str] = Field(default=None, description="Why the company was matched")
+    evidence: Optional[str] = Field(default=None, description="Supporting evidence text/reference")
+    created_at: Optional[datetime] = Field(default=None, description="Mapping creation time")
 
 
 class EventCompanyOut(EventCompanyBase):
@@ -70,3 +75,4 @@ __all__ = [
     "EventCompanyOut",
     "EventCompanyDetail",
 ]
+

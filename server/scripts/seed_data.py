@@ -39,15 +39,22 @@ def seed(db) -> None:
         industry_map[name] = industry
 
     for ticker, name, industry_name in COMPANIES:
-        existing = db.query(Company).filter(Company.ticker == ticker).first()
+        existing = (
+            db.query(Company)
+            .filter(Company.ticker == ticker)
+            .filter((Company.market == "SET") | ((Company.market.is_(None)) & (Company.exchange == "SET")))
+            .first()
+        )
         if existing:
             continue
         company = Company(
             ticker=ticker,
             name=name,
             exchange="SET",
+            market="SET",
             industry_id=industry_map[industry_name].id,
             description=None,
+            source="seed",
         )
         db.add(company)
 

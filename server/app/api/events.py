@@ -67,12 +67,6 @@ def process_events(db: Session = Depends(get_db)):
     return stats
 
 
-@router.get("/events/categories", response_model=List[CategoryOut])
-def list_event_categories():
-    """Retrieve the list of supported event categories."""
-    return [CategoryOut(category=c) for c in SUPPORTED_CATEGORIES]
-
-
 @router.get("/events/{event_id}/industries", response_model=List[EventIndustryDetail])
 def get_event_industries(event_id: int, db: Session = Depends(get_db)):
     """Retrieve industries potentially affected by an event."""
@@ -124,6 +118,10 @@ def get_event_companies(event_id: int, db: Session = Depends(get_db)):
             exposure_type=m.exposure_type,
             relevance_score=m.relevance_score,
             explanation=m.explanation,
+            match_confidence=getattr(m, "match_confidence", None),
+            match_reason=getattr(m, "match_reason", None),
+            evidence=getattr(m, "evidence", None),
+            created_at=getattr(m, "created_at", None),
             company_name=c.name,
             ticker=c.ticker,
         )

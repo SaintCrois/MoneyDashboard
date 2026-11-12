@@ -1,13 +1,14 @@
 """AI Investment Impact Radar - Streamlit frontend.
 
-Sprint 1 + Sprint 2: application shell plus a working Events page. All data is
-retrieved exclusively through the FastAPI backend; Streamlit never connects to
-PostgreSQL directly.
+All data is retrieved exclusively through the FastAPI backend; Streamlit never
+connects to PostgreSQL directly.
 """
 
+import json
 import os
-from typing import Optional
+from typing import Any, Optional
 
+import pandas as pd
 import requests
 import streamlit as st
 from dotenv import load_dotenv
@@ -15,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
-REQUEST_TIMEOUT = 10
+REQUEST_TIMEOUT = 15
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +24,6 @@ REQUEST_TIMEOUT = 10
 # ---------------------------------------------------------------------------
 
 def api_get(path: str, params: Optional[dict] = None) -> Optional[dict]:
-    """Make a GET request to the backend, returning None on failure."""
     try:
         response = requests.get(
             f"{BACKEND_URL}{path}", params=params, timeout=REQUEST_TIMEOUT
@@ -34,11 +34,10 @@ def api_get(path: str, params: Optional[dict] = None) -> Optional[dict]:
         return None
 
 
-def api_post(path: str, json: Optional[dict] = None) -> Optional[dict]:
-    """Make a POST request to the backend, returning None on failure."""
+def api_post(path: str, json_body: Optional[dict] = None) -> Optional[dict]:
     try:
         response = requests.post(
-            f"{BACKEND_URL}{path}", json=json, timeout=REQUEST_TIMEOUT
+            f"{BACKEND_URL}{path}", json=json_body, timeout=REQUEST_TIMEOUT
         )
         response.raise_for_status()
         return response.json()
@@ -47,13 +46,11 @@ def api_post(path: str, json: Optional[dict] = None) -> Optional[dict]:
 
 
 def get_backend_status() -> bool:
-    """Return True when the backend /health endpoint responds successfully."""
     data = api_get("/health")
     return data is not None and data.get("status") == "ok"
 
 
 def get_companies(industry_id: Optional[int] = None) -> list[dict]:
-    """Retrieve companies from the backend."""
     path = "/api/companies"
     if industry_id is not None:
         path += f"?industry_id={industry_id}"
@@ -61,49 +58,58 @@ def get_companies(industry_id: Optional[int] = None) -> list[dict]:
     return data if isinstance(data, list) else []
 
 
+def get_company(company_id: int) -> Optional[dict]:
+    return api_get(f"/api/companies/{company_id}")
+
+
 def get_industries() -> list[dict]:
-    """Retrieve industries from the backend."""
     data = api_get("/api/industries")
     return data if isinstance(data, list) else []
 
 
+def sync_companies_from_set() -> Optional[dict]:
+    return api_post("/api/companies/sync")
+
+
 def get_articles(
-    skip: int = 0, limit: int = 50
+    skip: int = 0,
+    limit: int = 50,
+    source: Optional[str] = None,
+    thailand_relevance: Optional[str] = None,
+    language: Optional[str] = None,
 ) -> list[dict]:
-    """Retrieve news articles from the backend."""
-    data = api_get("/api/news", params={"skip": skip, "limit": limit})
+    params: dict = {"skip": skip, "limit": limit}
+    if source:
+        params["source"] = source
+    if thailand_relevance:
+        params["thailand_relevance"] = thailand_relevance
+    if language:
+        params["language"] = language
+    data = api_get("/api/news", params=params)
     return data if isinstance(data, list) else []
 
 
 def get_article(article_id: int) -> Optional[dict]:
-    """Retrieve a single news article by ID."""
     return api_get(f"/api/news/{article_id}")
 
 
 def ingest_articles() -> Optional[dict]:
-    """Trigger news ingestion from configured sources."""
     return api_post("/api/news/ingest")
 
 
 def get_news_sources() -> list[dict]:
-    """Retrieve the list of configured news sources."""
     data = api_get("/api/news/sources")
     return data if isinstance(data, list) else []
 
 
-def filter_articles_by_source(
-    articles: list[dict], source_name: Optional[str]
-) -> list[dict]:
-    """Filter articles by source name. 'All Sources' or None returns all."""
+def filter_articles_by_source(articles: list[dict], source_name: Optional[str]) -> list[dict]:
+    """Client-side filter fallback."""
     if not source_name or source_name == "All Sources":
         return articles
     return [a for a in articles if (a.get("source") or "") == source_name]
 
 
-def get_events(
-    skip: int = 0, limit: int = 50, category: Optional[str] = None
-) -> list[dict]:
-    """Retrieve events from the backend, optionally filtered by category."""
+def get_events(skip: int = 0, limit: int = 50, category: Optional[str] = None) -> list[dict]:
     params: dict = {"skip": skip, "limit": limit}
     if category:
         params["category"] = category
@@ -112,37 +118,85 @@ def get_events(
 
 
 def get_event(event_id: int) -> Optional[dict]:
-    """Retrieve a single event by ID."""
     return api_get(f"/api/events/{event_id}")
 
 
 def process_events() -> Optional[dict]:
-    """Trigger processing of unprocessed articles into events."""
     return api_post("/api/events/process")
 
 
 def get_event_categories() -> list[str]:
-    """Retrieve the list of supported event categories."""
     data = api_get("/api/events/categories")
     return [c["category"] for c in data] if isinstance(data, list) else []
 
 
 def get_event_industries(event_id: int) -> list[dict]:
-    """Retrieve industries potentially affected by an event."""
     data = api_get(f"/api/events/{event_id}/industries")
     return data if isinstance(data, list) else []
 
 
 def get_event_companies(event_id: int) -> list[dict]:
-    """Retrieve companies potentially affected by an event."""
     data = api_get(f"/api/events/{event_id}/companies")
     return data if isinstance(data, list) else []
 
 
+def get_company_events(company_id: int) -> list[dict]:
+    data = api_get(f"/api/companies/{company_id}/events")
+    return data if isinstance(data, list) else []
+
+
+# --- Sprint 3 helpers ---
+
+def get_company_financials(company_id: int) -> list[dict]:
+    data = api_get(f"/api/companies/{company_id}/financials")
+    return data if isinstance(data, list) else []
+
+
+def get_company_financial_analysis(company_id: int) -> Optional[dict]:
+    return api_get(f"/api/companies/{company_id}/financial-analysis")
+
+
+def get_company_market_data(company_id: int) -> list[dict]:
+    data = api_get(f"/api/companies/{company_id}/market-data")
+    return data if isinstance(data, list) else []
+
+
+def get_company_market_analysis(company_id: int) -> Optional[dict]:
+    return api_get(f"/api/companies/{company_id}/market-analysis")
+
+
+def get_company_assessments(company_id: int) -> list[dict]:
+    data = api_get(f"/api/companies/{company_id}/assessments")
+    return data if isinstance(data, list) else []
+
+
+def get_event_assessments(event_id: int) -> list[dict]:
+    data = api_get(f"/api/events/{event_id}/assessments")
+    return data if isinstance(data, list) else []
+
+
+def get_assessments() -> list[dict]:
+    data = api_get("/api/assessments")
+    return data if isinstance(data, list) else []
+
+
+def generate_assessments(company_id: int, event_id: Optional[int] = None) -> Optional[list]:
+    payload: dict[str, Any] = {"company_id": company_id}
+    if event_id is not None:
+        payload["event_id"] = event_id
+    data = api_post("/api/assessments/generate", json_body=payload)
+    return data if isinstance(data, list) else None
+
+
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+
 def _ingestion_status_badge(source_result: dict) -> str:
-    """Return explicit ingestion status: Success, No Articles, Failed, Partial Success."""
-    if source_result.get("final_status"):
-        return source_result["final_status"]
+    # Preserve explicit final_status when provided by backend.
+    fs = source_result.get("final_status")
+    if fs:
+        return fs
     if source_result.get("error"):
         return "Failed"
     parsed = source_result.get("parsed", 0)
@@ -153,6 +207,45 @@ def _ingestion_status_badge(source_result: dict) -> str:
     if ingested > 0 or skipped > 0:
         return "Success"
     return "No Articles"
+
+
+def _as_list(value: Any) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else [parsed]
+        except Exception:
+            return [value]
+    return [value]
+
+
+def _as_dict(value: Any) -> dict:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _format_dt(value: Any) -> str:
+    if not value:
+        return "—"
+    if isinstance(value, str):
+        return value.replace("T", " ")[:19]
+    try:
+        return str(value)
+    except Exception:
+        return "—"
 
 
 # ---------------------------------------------------------------------------
@@ -171,26 +264,53 @@ def page_dashboard() -> None:
     status_text = "Connected" if backend_ok else "Unavailable"
     st.markdown(f"Backend connection: :{status_color}[{status_text}]")
 
-    companies = []
-    load_error = None
-    try:
-        companies = get_companies()
-    except Exception as exc:  # pragma: no cover - defensive UI handling
-        load_error = str(exc)
-
-    total_companies = len(companies)
+    companies = get_companies()
     industries = get_industries()
-    total_industries = len(industries)
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Companies", total_companies)
-    col2.metric("Total Industries", total_industries)
+    col1.metric("Total Companies", len(companies))
+    col2.metric("Total Industries", len(industries))
     col3.metric("Backend", status_text)
 
-    if load_error:
-        st.error(f"Unable to load company data from backend: {load_error}")
-
     st.subheader("Companies")
+    col_sync1, col_sync2 = st.columns([1, 3])
+    with col_sync1:
+        if st.button("Sync Companies from SET", help="Import/synchronize listed company reference data"):
+            with st.spinner("Synchronizing companies..."):
+                result = sync_companies_from_set()
+            if result is None:
+                st.error("Synchronization request failed (backend unavailable or error).")
+            else:
+                st.session_state["last_company_sync"] = result
+                if result.get("errors") and (result.get("imported", 0) + result.get("updated", 0)) == 0 and result.get("retrieved", 0) == 0:
+                    st.warning(result.get("message") or "Synchronization completed with issues.")
+                else:
+                    st.success(result.get("message") or "Synchronization completed.")
+    with col_sync2:
+        last_sync = st.session_state.get("last_company_sync")
+        if last_sync:
+            st.caption(f"Last synchronization time: {_format_dt(last_sync.get('last_sync_time'))}")
+
+    last_sync = st.session_state.get("last_company_sync")
+    if last_sync:
+        st.markdown("**Synchronization results**")
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Retrieved", last_sync.get("retrieved", 0))
+        c2.metric("Imported", last_sync.get("imported", 0))
+        c3.metric("Updated", last_sync.get("updated", 0))
+        c4.metric("Duplicates skipped", last_sync.get("duplicates_skipped", 0))
+        c5.metric("Errors", len(last_sync.get("errors") or []))
+        st.caption(
+            f"Source: {last_sync.get('source', 'unknown')} | "
+            f"Fallback used: {'Yes' if last_sync.get('used_fallback') else 'No'}"
+        )
+        errs = last_sync.get("errors") or []
+        if errs:
+            with st.expander("Synchronization errors / notes"):
+                for e in errs:
+                    st.write(f"- {e}")
+
+    st.divider()
     if companies:
         st.table(
             [
@@ -198,14 +318,16 @@ def page_dashboard() -> None:
                     "ID": c.get("id"),
                     "Ticker": c.get("ticker"),
                     "Name": c.get("name"),
-                    "Exchange": c.get("exchange"),
+                    "Market": c.get("market") or c.get("exchange"),
                     "Industry": c.get("industry_name") or "Unassigned",
+                    "Sector": c.get("sector") or "—",
+                    "Source": c.get("source") or "—",
                 }
                 for c in companies
             ]
         )
     else:
-        st.info("No companies available. Verify the backend is running.")
+        st.info("No companies available. Use 'Sync Companies from SET' or seed/create companies.")
 
 
 def page_events() -> None:
@@ -214,12 +336,9 @@ def page_events() -> None:
 
     backend_ok = get_backend_status()
     if not backend_ok:
-        st.error(
-            "Backend is unavailable. Start the FastAPI backend to view events and articles."
-        )
+        st.error("Backend is unavailable. Start the FastAPI backend to view events and articles.")
         return
 
-    # ---- Controls ----
     st.subheader("News & Event Intelligence")
     col_ingest, col_process, col_refresh = st.columns([1, 1, 1])
     with col_ingest:
@@ -231,7 +350,7 @@ def page_events() -> None:
                 st.success(
                     f"Ingestion complete: {result.get('ingested', 0)} new, "
                     f"{result.get('skipped_duplicate', 0)} duplicates skipped, "
-                    f"{result.get('errors', 0)} source errors."
+                    f"{result.get('errors', 0)} source errors. Status: {result.get('status')}"
                 )
             else:
                 st.session_state["last_ingest_result"] = None
@@ -251,133 +370,146 @@ def page_events() -> None:
         if st.button("Refresh", help="Reload articles and events"):
             st.rerun()
 
-    # ---- Per-source ingestion results & health summary ----
+    # Source status (configured + last known ingestion status)
+    st.divider()
+    st.subheader("News Source Status")
+    configured_sources = get_news_sources()
+    if configured_sources:
+        src_rows = []
+        for s in configured_sources:
+            src_rows.append(
+                {
+                    "Publisher": s.get("publisher") or s.get("name"),
+                    "Source name": s.get("name"),
+                    "Feed URL": s.get("url") or "—",
+                    "HTTP status": s.get("http_status") if s.get("http_status") is not None else "—",
+                    "Content type": s.get("content_type") or "—",
+                    "Parsed": s.get("parsed_count") if s.get("parsed_count") is not None else "—",
+                    "Inserted": s.get("inserted_count") if s.get("inserted_count") is not None else "—",
+                    "Duplicates": s.get("duplicate_count") if s.get("duplicate_count") is not None else "—",
+                    "Errors": s.get("error_message") or "—",
+                    "Last successful ingestion": _format_dt(s.get("last_successful_ingestion_at")),
+                    "Final status": s.get("final_status") or ("Unavailable" if not s.get("enabled") else "Not checked"),
+                    "Notes": s.get("notes") or "—",
+                }
+            )
+        st.dataframe(pd.DataFrame(src_rows), use_container_width=True)
+        st.caption(
+            "Status distinguishes Success, No Articles, Failed, Partial Success, Unavailable. "
+            "HTTP 200 alone is not reported as success without verified parsed/ingested articles."
+        )
+    else:
+        st.info("No configured news sources returned by backend.")
+
+    # Per-run results
     last_result = st.session_state.get("last_ingest_result")
     if last_result:
-        st.divider()
-        st.subheader("Per-Source Ingestion Results")
+        st.subheader("Per-Source Ingestion Results (Current Run)")
         sources_data = last_result.get("sources", [])
         if sources_data:
             table_rows = []
             for s in sources_data:
                 table_rows.append(
                     {
+                        "Publisher": s.get("publisher") or s.get("name", "—"),
                         "Source name": s.get("name", "—"),
                         "Feed URL": s.get("url", "—"),
                         "HTTP status": s.get("http_status") if s.get("http_status") is not None else "—",
                         "Content type": s.get("content_type") or "—",
-                        "Articles parsed": s.get("parsed", 0),
-                        "Articles inserted": s.get("ingested", 0),
+                        "Parsed": s.get("parsed", 0),
+                        "Inserted": s.get("ingested", 0),
                         "Duplicates skipped": s.get("skipped", 0),
                         "Error": s.get("error") or "—",
                         "Final status": _ingestion_status_badge(s),
+                        "Last successful ingestion": _format_dt(s.get("last_successful_ingestion_at")),
                     }
                 )
-            st.table(table_rows)
-
-            # Health summary
-            total_sources = len(sources_data)
-            reached = sum(
-                1 for s in sources_data
-                if s.get("http_status") is not None and s.get("error") is None
-            )
-            failed = sum(1 for s in sources_data if s.get("error") is not None)
-            total_parsed = sum(s.get("parsed", 0) for s in sources_data)
-            total_inserted = sum(s.get("ingested", 0) for s in sources_data)
-            total_skipped = sum(s.get("skipped", 0) for s in sources_data)
-
-            st.subheader("Source Health Summary (Current Run)")
-            c1, c2, c3, c4, c5, c6 = st.columns(6)
-            c1.metric("Total sources", total_sources)
-            c2.metric("Reached", reached)
-            c3.metric("Failed", failed)
-            c4.metric("Parsed", total_parsed)
-            c5.metric("Inserted", total_inserted)
-            c6.metric("Duplicates skipped", total_skipped)
-            st.caption(
-                "Historical database article counts are shown separately in the Articles section below."
-            )
+            st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
 
     st.divider()
 
-    # ---- Filters ----
     categories = get_event_categories()
     configured_sources = get_news_sources()
     source_names = [s["name"] for s in configured_sources] if configured_sources else []
-
-    # Fallback: if configured sources not available, derive from articles
-    all_articles = get_articles()
+    all_articles = get_articles(limit=100)
     if not source_names:
         source_names = sorted({a.get("source", "") for a in all_articles if a.get("source")})
 
-    col_filter1, col_filter2, col_filter3 = st.columns([2, 1, 1])
-    with col_filter1:
-        search = st.text_input(
-            "Search articles or events",
-            placeholder="Keyword search...",
-        )
-    with col_filter2:
+    col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns([2, 1, 1, 1, 1])
+    with col_f1:
+        search = st.text_input("Search articles or events", placeholder="Keyword search...")
+    with col_f2:
         category_options = ["All"] + categories
-        selected_category = st.selectbox("Category", category_options, index=0)
-    with col_filter3:
+        selected_category = st.selectbox("Event Category", category_options, index=0)
+    with col_f3:
         source_options = ["All Sources"] + source_names
         selected_source = st.selectbox("News Source", source_options, index=0)
+    with col_f4:
+        rel_options = ["All", "Thailand-focused", "Thailand-related", "International", "Uncertain"]
+        selected_relevance = st.selectbox("Thailand relevance", rel_options, index=0)
+    with col_f5:
+        langs = sorted({(a.get("language") or "unknown") for a in all_articles})
+        lang_options = ["All"] + langs
+        selected_lang = st.selectbox("Language", lang_options, index=0)
 
-    # ---- News Articles ----
+    # Fetch with backend filters where possible
+    backend_source = None if selected_source == "All Sources" else selected_source
+    backend_rel = None if selected_relevance == "All" else selected_relevance
+    backend_lang = None if selected_lang == "All" else selected_lang
+    articles = get_articles(limit=100, source=backend_source, thailand_relevance=backend_rel, language=backend_lang)
+
     st.subheader("Collected News Articles")
-    articles = all_articles  # use already-fetched articles (no extra RSS request)
-    filtered_articles = filter_articles_by_source(articles, selected_source)
-
+    filtered_articles = articles
     if search:
         term = search.lower()
         filtered_articles = [
-            a
-            for a in filtered_articles
+            a for a in filtered_articles
             if term in (a.get("title") or "").lower()
             or term in (a.get("source") or "").lower()
             or term in (a.get("summary") or "").lower()
+            or term in (a.get("relevance_reason") or "").lower()
         ]
 
     st.caption(
-        f"Showing {len(filtered_articles)} of {len(articles)} articles "
-        f"(historical database count: {len(articles)})."
+        f"Showing {len(filtered_articles)} of {len(articles)} articles (current query). "
+        "Uncertain articles are stored but must not be treated as Thailand-focused."
     )
 
     if articles:
         if not filtered_articles:
-            st.info("No articles match your current filters (source/search).")
+            st.info("No articles match your current filters.")
         else:
-            for a in filtered_articles[:20]:
+            for a in filtered_articles[:25]:
                 with st.container():
-                    st.markdown(
-                        f"**[{a.get('title', 'Untitled')}]({a.get('url', '#')})**"
-                    )
+                    st.markdown(f"**[{a.get('title', 'Untitled')}]({a.get('url', '#')})**")
                     meta = []
                     if a.get("source"):
                         meta.append(f"Source: {a['source']}")
                     if a.get("published_at"):
-                        meta.append(f"Published: {a['published_at'][:10]}")
+                        meta.append(f"Published: {str(a['published_at'])[:10]}")
+                    if a.get("language"):
+                        meta.append(f"Language: {a['language']}")
+                    rel = a.get("thailand_relevance") or "Unclassified"
+                    meta.append(f"Thailand relevance: {rel}")
                     st.caption(" | ".join(meta))
+                    if a.get("relevance_reason"):
+                        st.caption(f"Relevance reasoning: {a.get('relevance_reason')}")
                     if a.get("summary"):
-                        st.write(a["summary"][:300])
+                        st.write(str(a["summary"])[:350])
                     st.divider()
     else:
         st.info("No news articles collected yet. Use 'Ingest News' to collect articles.")
 
     st.divider()
 
-    # ---- Events ----
     st.subheader("Detected Events")
-    events = get_events(
-        category=None if selected_category == "All" else selected_category
-    )
+    events = get_events(category=None if selected_category == "All" else selected_category)
     if events:
         filtered_events = events
         if search:
             term = search.lower()
             filtered_events = [
-                e
-                for e in events
+                e for e in events
                 if term in (e.get("title") or "").lower()
                 or term in (e.get("description") or "").lower()
                 or term in (e.get("category") or "").lower()
@@ -390,28 +522,22 @@ def page_events() -> None:
                     st.markdown(f"### {e.get('title', 'Untitled Event')}")
                     meta_cols = st.columns(4)
                     meta_cols[0].caption(f"Category: {e.get('category', 'Uncertain')}")
-                    meta_cols[1].caption(
-                        f"Method: {e.get('classification_method') or '—'}"
-                    )
+                    meta_cols[1].caption(f"Method: {e.get('classification_method') or '—'}")
                     conf = e.get("confidence_score")
-                    meta_cols[2].caption(
-                        f"Confidence: {conf}" if conf is not None else "Confidence: —"
-                    )
-                    meta_cols[3].caption(
-                        f"Status: {e.get('processing_status', '—')}"
-                    )
+                    meta_cols[2].caption(f"Confidence: {conf}" if conf is not None else "Confidence: —")
+                    meta_cols[3].caption(f"Status: {e.get('processing_status', '—')}")
                     if e.get("description"):
                         st.write(e["description"])
                     if e.get("event_date"):
-                        st.caption(f"Event date: {e['event_date'][:10]}")
+                        st.caption(f"Event date: {str(e['event_date'])[:10]}")
                     if e.get("source_article_id"):
                         article = get_article(e["source_article_id"])
                         if article:
                             st.caption(
-                                f"Source: [{article.get('source', 'Article')}]({article.get('url', '#')})"
+                                f"Source: [{article.get('source', 'Article')}]({article.get('url', '#')}) | "
+                                f"Thailand relevance: {article.get('thailand_relevance') or 'Unclassified'}"
                             )
 
-                    # Mappings
                     ind_col, comp_col = st.columns(2)
                     with ind_col:
                         st.markdown("**Potentially affected industries**")
@@ -427,20 +553,37 @@ def page_events() -> None:
                         else:
                             st.caption("None mapped yet.")
                     with comp_col:
-                        st.markdown("**Potentially affected companies**")
+                        st.markdown("**Company associations (evidence-backed)**")
                         companies_map = get_event_companies(e["id"])
                         if companies_map:
                             for cm in companies_map:
-                                st.write(
-                                    f"- {cm.get('company_name', 'Company')} "
-                                    f"({cm.get('ticker', '—')}) "
+                                mconf = cm.get("match_confidence") or "—"
+                                st.markdown(
+                                    f"**{cm.get('company_name', 'Company')} ({cm.get('ticker', '—')})** "
+                                    f"— Match confidence: `{mconf}` "
                                     f"(impact: {cm.get('impact_type', 'Uncertain')}, "
                                     f"exposure: {cm.get('exposure_type', '—')}, "
-                                    f"relevance: {cm.get('relevance_score') or '—'})\n"
-                                    f"  {cm.get('explanation', '')}"
+                                    f"relevance: {cm.get('relevance_score') or '—'})"
                                 )
+                                st.caption(f"Reason: {cm.get('match_reason') or cm.get('explanation') or '—'}")
+                                evidence = cm.get("evidence")
+                                if evidence:
+                                    try:
+                                        ev_obj = json.loads(evidence) if isinstance(evidence, str) else evidence
+                                        if isinstance(ev_obj, dict):
+                                            if ev_obj.get("article_url"):
+                                                st.caption(f"Supporting article: {ev_obj.get('article_title') or ''} ({ev_obj.get('article_url')})")
+                                            matches = ev_obj.get("matches") or []
+                                            if matches:
+                                                st.caption("Supporting evidence: " + "; ".join(
+                                                    [str(m.get("snippet") or m.get("matched") or m) for m in matches[:3]]
+                                                ))
+                                    except Exception:
+                                        st.caption(f"Supporting evidence: {str(evidence)[:300]}")
+                                if mconf == "Low":
+                                    st.warning("Low-confidence association: must not be treated as confirmed (shown only if present).")
                         else:
-                            st.caption("None mapped yet.")
+                            st.caption("No sufficiently supported company associations. (Low/uncertain matches remain unassigned.)")
                     st.divider()
     else:
         st.info("No events detected yet. Use 'Process Events' to create events from articles.")
@@ -448,33 +591,277 @@ def page_events() -> None:
 
 def page_companies() -> None:
     st.title("Companies")
-    st.caption("From Global Events to Investment Insights")
-    st.info("Placeholder: detailed company views will be expanded in later sprints.")
+    st.caption("Company financial and market analysis")
+
+    backend_ok = get_backend_status()
+    if not backend_ok:
+        st.error("Backend is unavailable. Start the FastAPI backend to view company analysis.")
+        return
 
     companies = get_companies()
-    if companies:
-        st.subheader("Listed Companies")
-        st.table(
-            [
-                {
-                    "ID": c.get("id"),
-                    "Ticker": c.get("ticker"),
-                    "Name": c.get("name"),
-                    "Exchange": c.get("exchange"),
-                    "Industry": c.get("industry_name") or "Unassigned",
-                }
-                for c in companies
-            ]
-        )
+    if not companies:
+        st.info("No companies available. Use Dashboard > Sync Companies from SET or seed/create companies.")
+        return
+
+    options = {f"{c['ticker']} - {c['name']}": c for c in companies}
+    selected_label = st.selectbox("Select a company", list(options.keys()))
+    company = options[selected_label]
+    company_id = company["id"]
+
+    st.subheader("Company Overview")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Ticker", company.get("ticker", "—"))
+    c2.metric("Name", company.get("name", "—"))
+    c3.metric("Market", company.get("market") or company.get("exchange") or "—")
+    c4.metric("Industry", company.get("industry_name") or "Unassigned")
+    if company.get("sector"):
+        st.caption(f"Sector: {company.get('sector')}")
+
+    st.divider()
+
+    # Financial analysis
+    st.subheader("Financial Analysis")
+    fin_analysis = get_company_financial_analysis(company_id)
+    if fin_analysis is None:
+        st.error("Unable to load financial analysis from backend.")
     else:
-        st.warning("Unable to load companies from the backend.")
+        records = fin_analysis.get("records", [])
+        calc_metrics = fin_analysis.get("calculated_metrics", [])
+        unavailable = fin_analysis.get("unavailable_metrics", [])
+        sources = fin_analysis.get("data_sources", [])
+        notes = fin_analysis.get("notes", [])
+
+        st.caption("**Source facts (reported):** stored financial records as provided/imported.")
+        if records:
+            df = pd.DataFrame([
+                {
+                    "Fiscal Year": r.get("fiscal_year"),
+                    "Period": r.get("reporting_period") or r.get("fiscal_year"),
+                    "Revenue": r.get("revenue"),
+                    "Net Profit": r.get("net_profit"),
+                    "Operating Income": r.get("operating_income"),
+                    "Total Debt": r.get("total_debt"),
+                    "Shareholders' Equity": r.get("shareholders_equity"),
+                    "Data Source": r.get("data_source"),
+                    "Estimate": r.get("is_estimate"),
+                }
+                for r in records
+            ])
+            st.dataframe(df, use_container_width=True)
+
+            chart_df = pd.DataFrame([
+                {"Period": (r.get("reporting_period") or str(r.get("fiscal_year"))),
+                 "Revenue": r.get("revenue"),
+                 "Net Profit": r.get("net_profit")}
+                for r in records
+            ]).set_index("Period")
+            if not chart_df.dropna(how="all").empty:
+                st.markdown("**Revenue and Net Income Trends (reported figures)**")
+                st.line_chart(chart_df)
+
+            st.caption("**Calculated financial metrics (derived from reported figures):**")
+            if calc_metrics:
+                calc_rows = []
+                for m in calc_metrics:
+                    row = {"Period": m.get("reporting_period") or m.get("fiscal_year")}
+                    row.update(m.get("calculated", {}))
+                    calc_rows.append(row)
+                st.dataframe(pd.DataFrame(calc_rows), use_container_width=True)
+        else:
+            st.info("No financial records available. Add records via API or CSV import.")
+
+        st.caption(f"Financial data sources: {', '.join(sources) if sources else 'none recorded.'}")
+        if unavailable:
+            st.warning(f"Unavailable metrics (insufficient data): {', '.join(sorted(set(unavailable)))}")
+        for n in notes:
+            st.info(f"Note: {n}")
+
+    st.divider()
+
+    # Market analysis
+    st.subheader("Market Analysis")
+    mkt_analysis = get_company_market_analysis(company_id)
+    if mkt_analysis is None:
+        st.error("Unable to load market analysis from backend.")
+    else:
+        m_records = mkt_analysis.get("records", [])
+        indicators = mkt_analysis.get("indicators", {})
+        m_unavail = mkt_analysis.get("unavailable_indicators", [])
+        m_sources = mkt_analysis.get("data_sources", [])
+        m_notes = mkt_analysis.get("notes", [])
+        latest_update = mkt_analysis.get("latest_update")
+
+        st.caption("**Market data (observed/reported records):**")
+        if m_records:
+            mdf = pd.DataFrame([
+                {
+                    "Date": str(r.get("recorded_at") or "")[:10],
+                    "Open": r.get("open_price"),
+                    "High": r.get("high_price"),
+                    "Low": r.get("low_price"),
+                    "Close": r.get("close_price") or r.get("stock_price"),
+                    "Volume": r.get("trading_volume"),
+                    "Daily % Change": r.get("daily_change_pct"),
+                    "Source": r.get("data_source"),
+                    "Delayed": r.get("is_delayed"),
+                    "Estimate": r.get("is_estimate"),
+                }
+                for r in m_records
+            ])
+            st.dataframe(mdf, use_container_width=True)
+
+            price_df = pd.DataFrame([
+                {
+                    "Date": str(r.get("recorded_at") or "")[:10],
+                    "Price": r.get("close_price") or r.get("stock_price"),
+                    "Volume": r.get("trading_volume"),
+                }
+                for r in m_records
+            ]).set_index("Date")
+            if not price_df[["Price"]].dropna(how="all").empty:
+                st.markdown("**Stock Price History (reported)**")
+                st.line_chart(price_df[["Price"]])
+            if not price_df[["Volume"]].dropna(how="all").empty:
+                st.markdown("**Trading Volume (reported)**")
+                st.bar_chart(price_df[["Volume"]])
+
+            st.caption("**Calculated market indicators (derived from records):**")
+            ind_rows = []
+            for k in ("latest_price", "daily_change_pct", "average_trading_volume", "volatility"):
+                if k in indicators:
+                    ind_rows.append({"Indicator": k, "Value": indicators[k]})
+            if "volume_comparison" in indicators:
+                vc = indicators["volume_comparison"]
+                ind_rows.append({"Indicator": "volume_ratio", "Value": vc.get("volume_ratio")})
+            if ind_rows:
+                st.table(ind_rows)
+        else:
+            st.info("No market data available. Add records via API or CSV import.")
+
+        if latest_update:
+            st.caption(f"Latest available data timestamp: {latest_update}")
+        st.caption(f"Market data sources: {', '.join(m_sources) if m_sources else 'none recorded.'}")
+        if indicators.get("latest_is_delayed"):
+            st.warning("Latest market data is marked as delayed.")
+        if indicators.get("latest_is_estimate"):
+            st.warning("Latest market data is marked as estimate/demonstration (not actual market price).")
+        if m_unavail:
+            st.warning(f"Unavailable indicators: {', '.join(sorted(set(m_unavail)))}")
+        for n in m_notes:
+            st.info(f"Note: {n}")
 
 
 def page_analysis() -> None:
     st.title("Analysis")
-    st.caption("From Global Events to Investment Insights")
-    st.info("Placeholder: AI impact analysis will be implemented in Sprint 3.")
-    st.write("This page will display investment impact assessments.")
+    st.caption("AI Investment Impact Assessment")
+
+    backend_ok = get_backend_status()
+    if not backend_ok:
+        st.error("Backend is unavailable. Start the FastAPI backend to view assessments.")
+        return
+
+    companies = get_companies()
+    if not companies:
+        st.info("No companies available. Seed, sync, or create companies first.")
+        return
+
+    options = {f"{c['ticker']} - {c['name']}": c for c in companies}
+    selected_label = st.selectbox("Select a company", list(options.keys()))
+    company = options[selected_label]
+    company_id = company["id"]
+
+    related_events = get_company_events(company_id)
+    event_options = {"All mapped events (supported matches only)": None}
+    for e in related_events:
+        event_options[f"[{e.get('category')}] {e.get('title')} (id={e.get('id')})"] = e.get("id")
+    selected_event_label = st.selectbox("Related event", list(event_options.keys()))
+    selected_event_id = event_options[selected_event_label]
+
+    st.markdown(
+        "**Note:** Assessments use updated company-event relationships and must not rely on "
+        "weak or incorrect associations. They combine source facts, calculated metrics, "
+        "market indicators, and baseline interpretations. Research support only — not "
+        "guaranteed predictions or buy/sell recommendations."
+    )
+
+    if st.button("Generate Assessment", type="primary"):
+        with st.spinner("Generating assessment..."):
+            result = generate_assessments(company_id, selected_event_id)
+        if result is None:
+            st.error("Assessment generation failed. Check backend availability and inputs.")
+        elif len(result) == 0:
+            st.warning(
+                "No assessments generated. The company may have no sufficiently supported "
+                "event mappings. Run event processing/mapping or select a specific event."
+            )
+        else:
+            st.success(f"Generated {len(result)} assessment(s).")
+
+    st.divider()
+    st.subheader("Existing Assessments")
+    assessments = get_company_assessments(company_id)
+    if not assessments:
+        st.info("No assessments found for this company yet. Generate one above.")
+        return
+
+    for a in assessments:
+        with st.container():
+            st.markdown(f"### {a.get('event_title') or 'Event'}")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Impact", a.get("impact_type") or "Uncertain")
+            m2.metric("Severity", a.get("impact_severity") or "Unknown")
+            m3.metric("Risk", a.get("risk_level") or "—")
+            conf = a.get("confidence")
+            m4.metric("Confidence", f"{conf}" if conf is not None else "—")
+
+            st.caption(
+                f"Company: {a.get('company_name') or company.get('name')} ({a.get('company_ticker') or company.get('ticker')}) | "
+                f"Category: {a.get('event_category') or '—'} | "
+                f"Methodology: {a.get('methodology') or '—'} | "
+                f"Assessed: {_format_dt(a.get('assessed_at') or a.get('created_at'))}"
+            )
+
+            st.markdown("**Interpretation (explanation):**")
+            st.write(a.get("explanation") or "No explanation available.")
+            st.markdown("**Financial exposure (interpretation):**")
+            st.write(a.get("financial_exposure") or "Not available.")
+
+            fin_m = _as_dict(a.get("relevant_financial_metrics"))
+            mkt_m = _as_dict(a.get("relevant_market_indicators"))
+            evidence = _as_list(a.get("supporting_evidence"))
+            missing = _as_list(a.get("missing_information"))
+
+            col_f, col_m = st.columns(2)
+            with col_f:
+                st.markdown("**Relevant financial metrics:**")
+                st.json(fin_m) if fin_m else st.caption("None available.")
+            with col_m:
+                st.markdown("**Relevant market indicators:**")
+                st.json(mkt_m) if mkt_m else st.caption("None available.")
+
+            st.markdown("**Supporting evidence & source references:**")
+            if evidence:
+                for ev in evidence:
+                    if isinstance(ev, dict):
+                        etype = ev.get("type", "evidence")
+                        desc = ev.get("description") or ev.get("source") or ev.get("industry") or ""
+                        url = ev.get("url")
+                        if url:
+                            st.markdown(f"- **{etype}**: [{desc or url}]({url})")
+                        else:
+                            st.write({k: v for k, v in ev.items() if v is not None})
+                    else:
+                        st.write(ev)
+            else:
+                st.caption("No supporting evidence recorded.")
+
+            st.markdown("**Missing information & limitations:**")
+            if missing:
+                for m in missing:
+                    st.warning(str(m))
+            else:
+                st.caption("No major gaps recorded.")
+            st.divider()
 
 
 def main() -> None:
@@ -488,11 +875,7 @@ def main() -> None:
         st.header("AI Investment Impact Radar")
         st.caption("From Global Events to Investment Insights")
         st.divider()
-        page = st.radio(
-            "Navigation",
-            ["Dashboard", "Events", "Companies", "Analysis"],
-            index=0,
-        )
+        page = st.radio("Navigation", ["Dashboard", "Events", "Companies", "Analysis"], index=0)
         st.divider()
         backend_ok = get_backend_status()
         status_color = "green" if backend_ok else "red"

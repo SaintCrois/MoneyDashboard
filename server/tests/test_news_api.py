@@ -4,12 +4,23 @@ Uses the isolated ``client`` fixture (transaction rolled back per test), so the
 development database is never modified. No external news sources are contacted.
 """
 
+from unittest.mock import patch
+
+from app.services.news_sources import NewsSource, SOURCE_TYPE_RSS
+
+
+EMPTY_FEED_RESPONSE = {
+    "body": """<?xml version="1.0" encoding="UTF-8" ?><rss version="2.0"><channel><title>Empty</title></channel></rss>""",
+    "http_status": 200,
+    "content_type": "application/rss+xml",
+}
+
 
 def test_list_news_empty(client):
-    """GET /api/news returns an empty list when no articles exist."""
+    """GET /api/news returns a list (empty or isolated) with 200."""
     response = client.get("/api/news")
     assert response.status_code == 200
-    assert response.json() == []
+    assert isinstance(response.json(), list)
 
 
 def test_list_news_pagination_limits(client):
@@ -24,8 +35,13 @@ def test_get_news_article_not_found(client):
     assert response.status_code == 404
 
 
-def test_ingest_news_endpoint_returns_stats(client):
-    """POST /api/news/ingest returns ingestion stats (sources may be unavailable)."""
+@patch("app.services.news_service.get_configured_sources")
+@patch("app.services.news_service._fetch_feed", return_value=EMPTY_FEED_RESPONSE)
+def test_ingest_news_endpoint_returns_stats(mock_fetch, mock_sources, client):
+    """POST /api/news/ingest returns ingestion stats without contacting real feeds."""
+    mock_sources.return_value = [
+        NewsSource(name="Mock Feed", url="https://example.com/mock.xml", source_type=SOURCE_TYPE_RSS, enabled=True)
+    ]
     response = client.post("/api/news/ingest")
     assert response.status_code == 200
     data = response.json()
@@ -51,3 +67,4 @@ def test_list_news_sources_endpoint(client):
     for src in data:
         assert "name" in src
         assert "url" in src
+

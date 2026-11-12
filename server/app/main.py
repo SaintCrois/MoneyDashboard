@@ -2,12 +2,12 @@ from fastapi import FastAPI
 
 from app.database import Base, engine
 import app.models  # noqa: F401  (registers all models with Base.metadata)
-from app.api import health, companies, industries, news, events
+from app.api import health, companies, industries, news, events, financials, market, assessments
 
 app = FastAPI(
     title="AI Investment Impact Radar",
     description="Global events and investment impact analysis API",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 
@@ -22,3 +22,6 @@ app.include_router(companies.router, prefix="/api")
 app.include_router(industries.router, prefix="/api")
 app.include_router(news.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
+app.include_router(financials.router, prefix="/api")
+app.include_router(market.router, prefix="/api")
+app.include_router(assessments.router, prefix="/api")

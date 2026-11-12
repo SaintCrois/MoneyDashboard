@@ -1,25 +1,28 @@
 """News ingestion service.
 
 Collects news articles from configured sources (RSS and Atom feeds), normalizes
-them, and stores them in PostgreSQL. Duplicate articles are prevented using a
-unique constraint on the normalized article URL. Source failures are logged and
-do not abort the ingestion of other sources.
+them, classifies Thailand relevance, and stores them in PostgreSQL. Duplicate
+articles are prevented using a unique constraint on the normalized article URL.
+Source failures are logged and do not abort the ingestion of other sources.
 
-No external API keys are required. External sources are optional: if all sources
+No external API keys are required. External sources are optional: if sources
 are unavailable, the application continues to work with stored articles.
 """
 
 import logging
+import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import List, Optional
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.news_article import NewsArticle
-from app.services.news_sources import DEFAULT_SOURCES, NewsSource
+from app.services.news_sources import NewsSource, get_configured_sources
+from app.services.thailand_relevance_service import classify_thailand_relevance
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +76,25 @@ def _parse_rss_datetime(value: Optional[str]) -> Optional[datetime]:
     return None
 
 
+def _strip_html(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return value
+    # lightweight tag removal for summaries
+    text = re.sub(r"<[^>]+>", " ", value)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text or None
+
+
+def _detect_language(title: Optional[str], summary: Optional[str]) -> str:
+    """Best-effort language hint (English-focused pipeline)."""
+    text = f"{title or ''} {summary or ''}"
+    # Thai script range indicates Thai content.
+    if re.search(r"[\u0E00-\u0E7F]", text):
+        return "th"
+    # Default to English for configured English feeds.
+    return "en"
+
+
 def _fetch_feed(url: str, timeout: int = REQUEST_TIMEOUT_SECONDS) -> dict:
     """Fetch the raw feed XML from a source URL with appropriate headers.
 
@@ -97,12 +119,11 @@ def _atom_link(element) -> Optional[str]:
     href = element.get("href")
     if href:
         return href
-    # Fall back to element text.
     text = (element.text or "").strip()
     return text or None
 
 
-def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
+def _parse_rss_feed(xml_text: str, source_name: str, source_language: str = "en") -> List[dict]:
     """Parse RSS 2.0 or Atom XML into a list of normalized article dicts.
 
     Handles invalid XML, empty feeds, missing publication dates, and
@@ -129,12 +150,14 @@ def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
 
             title = _text("title")
             url = _normalize_url(_text("link"))
-            summary = _text("description")
+            summary = _strip_html(_text("description"))
             published_at = _parse_rss_datetime(_text("pubDate"))
 
             if not title or not url:
                 continue
 
+            language = source_language or _detect_language(title, summary)
+            relevance = classify_thailand_relevance(title, summary, None)
             articles.append(
                 {
                     "title": title[:500],
@@ -144,6 +167,9 @@ def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
                     "summary": summary,
                     "content": None,
                     "fetched_at": datetime.now(timezone.utc),
+                    "thailand_relevance": relevance.classification,
+                    "relevance_reason": relevance.reason,
+                    "language": language,
                 }
             )
     elif tag.endswith("feed") or root.findall(".//" + ATOM_NS + "entry"):
@@ -159,7 +185,7 @@ def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
             title = _atom_text(ATOM_NS + "title")
             link_element = entry.find(ATOM_NS + "link")
             url = _normalize_url(_atom_link(link_element))
-            summary = _atom_text(ATOM_NS + "summary")
+            summary = _strip_html(_atom_text(ATOM_NS + "summary"))
             published_at = _parse_rss_datetime(_atom_text(ATOM_NS + "published"))
             if not published_at:
                 published_at = _parse_rss_datetime(_atom_text(ATOM_NS + "updated"))
@@ -167,6 +193,8 @@ def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
             if not title or not url:
                 continue
 
+            language = source_language or _detect_language(title, summary)
+            relevance = classify_thailand_relevance(title, summary, None)
             articles.append(
                 {
                     "title": title[:500],
@@ -176,6 +204,9 @@ def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
                     "summary": summary,
                     "content": None,
                     "fetched_at": datetime.now(timezone.utc),
+                    "thailand_relevance": relevance.classification,
+                    "relevance_reason": relevance.reason,
+                    "language": language,
                 }
             )
     else:
@@ -184,17 +215,72 @@ def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
     return articles
 
 
+def _record_source_status(db: Session, source_result: dict) -> None:
+    """Persist per-source ingestion status for UI/history (best-effort)."""
+    try:
+        now = datetime.now(timezone.utc)
+        last_success = None
+        if source_result.get("final_status") == "Success":
+            last_success = now
+        sql = text(
+            """
+            INSERT INTO news_source_status (
+                source_name, feed_url, http_status, content_type,
+                parsed_count, inserted_count, duplicate_count, error_message,
+                final_status, last_successful_ingestion_at, last_checked_at
+            ) VALUES (
+                :source_name, :feed_url, :http_status, :content_type,
+                :parsed_count, :inserted_count, :duplicate_count, :error_message,
+                :final_status, :last_successful_ingestion_at, :last_checked_at
+            )
+            ON CONFLICT (source_name) DO UPDATE SET
+                feed_url = EXCLUDED.feed_url,
+                http_status = EXCLUDED.http_status,
+                content_type = EXCLUDED.content_type,
+                parsed_count = EXCLUDED.parsed_count,
+                inserted_count = EXCLUDED.inserted_count,
+                duplicate_count = EXCLUDED.duplicate_count,
+                error_message = EXCLUDED.error_message,
+                final_status = EXCLUDED.final_status,
+                last_successful_ingestion_at = COALESCE(EXCLUDED.last_successful_ingestion_at, news_source_status.last_successful_ingestion_at),
+                last_checked_at = EXCLUDED.last_checked_at
+            """
+        )
+        db.execute(
+            sql,
+            {
+                "source_name": source_result.get("name"),
+                "feed_url": source_result.get("url"),
+                "http_status": source_result.get("http_status"),
+                "content_type": source_result.get("content_type"),
+                "parsed_count": int(source_result.get("parsed") or 0),
+                "inserted_count": int(source_result.get("ingested") or 0),
+                "duplicate_count": int(source_result.get("skipped") or 0),
+                "error_message": source_result.get("error"),
+                "final_status": source_result.get("final_status"),
+                "last_successful_ingestion_at": last_success,
+                "last_checked_at": now,
+            },
+        )
+        db.commit()
+        source_result["last_successful_ingestion_at"] = (
+            last_success.isoformat() if last_success else source_result.get("last_successful_ingestion_at")
+        )
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        logger.exception("Failed to persist news source status for %s", source_result.get("name"))
+
+
 def ingest_articles(
     db: Session,
     sources: Optional[List[NewsSource]] = None,
 ) -> dict:
     """Ingest articles from configured sources into the database.
 
-    Returns a stats dict with counts of ingested, skipped (duplicates), and
-    errored articles plus per-source results.
+    Returns a stats dict with counts and per-source results.
     """
     if sources is None:
-        sources = DEFAULT_SOURCES
+        sources = get_configured_sources()
 
     stats = {
         "ingested": 0,
@@ -205,10 +291,9 @@ def ingest_articles(
     }
 
     for source in sources:
-        if not source.enabled:
-            continue
         source_result = {
             "name": source.name,
+            "publisher": getattr(source, "publisher", source.name),
             "url": source.url,
             "type": source.source_type,
             "http_status": None,
@@ -218,18 +303,30 @@ def ingest_articles(
             "parsed": 0,
             "error": None,
             "final_status": "Failed",
+            "last_successful_ingestion_at": None,
         }
+
+        # Disabled/unavailable sources (e.g. no verified accessible feed) must be
+        # recorded explicitly, not fabricated or silently treated as success.
+        if not getattr(source, "enabled", True) or not source.url:
+            source_result["final_status"] = "Unavailable"
+            source_result["error"] = getattr(source, "notes", None) or "Source unavailable (no verified accessible feed)."
+            _record_source_status(db, source_result)
+            stats["sources"].append(source_result)
+            continue
 
         try:
             if source.source_type == "rss":
                 fetch = _fetch_feed(source.url)
                 source_result["http_status"] = fetch.get("http_status")
                 source_result["content_type"] = fetch.get("content_type")
-                parsed = _parse_rss_feed(fetch.get("body", ""), source.name)
-            else:
-                logger.warning(
-                    "Unsupported source type %s for %s", source.source_type, source.name
+                parsed = _parse_rss_feed(
+                    fetch.get("body", ""),
+                    source.name,
+                    source_language=getattr(source, "language", "en") or "en",
                 )
+            else:
+                logger.warning("Unsupported source type %s for %s", source.source_type, source.name)
                 parsed = []
 
             source_result["parsed"] = len(parsed)
@@ -253,6 +350,7 @@ def ingest_articles(
 
             db.commit()
 
+            # Do not report success merely because of HTTP 200.
             if source_result["parsed"] == 0:
                 source_result["final_status"] = "No Articles"
             elif source_result["ingested"] > 0 or source_result["skipped"] > 0:
@@ -270,29 +368,39 @@ def ingest_articles(
                 source_result["content_type"] = ct
             source_result["error"] = f"{type(exc).__name__}: {exc}"
             source_result["final_status"] = "Failed"
+            _record_source_status(db, source_result)
             stats["sources"].append(source_result)
             continue
-        except Exception as exc:  # noqa: BLE001 - never crash the whole pipeline
+        except Exception as exc:  # noqa: BLE001
             db.rollback()
             logger.exception("Unexpected ingestion error for source %s", source.name)
             stats["errors"] += 1
             source_result["error"] = f"{type(exc).__name__}: {exc}"
             source_result["final_status"] = "Failed"
+            _record_source_status(db, source_result)
             stats["sources"].append(source_result)
             continue
 
+        _record_source_status(db, source_result)
         stats["sources"].append(source_result)
 
     # Compute overall status after processing all sources.
-    if stats["errors"] > 0 and (stats["ingested"] > 0 or stats["skipped_duplicate"] > 0):
+    success_like = any(s.get("final_status") == "Success" for s in stats["sources"])
+    no_articles_like = any(s.get("final_status") == "No Articles" for s in stats["sources"])
+    failures = any(s.get("final_status") in ("Failed", "Unavailable") for s in stats["sources"])
+
+    if failures and success_like:
         stats["status"] = "Partial Success"
-    elif stats["errors"] > 0 and stats["ingested"] == 0 and stats["skipped_duplicate"] == 0:
+    elif failures and not success_like and not no_articles_like and stats["ingested"] == 0 and stats["skipped_duplicate"] == 0:
         stats["status"] = "Failed"
-    elif stats["ingested"] == 0 and stats["skipped_duplicate"] == 0:
-        stats["status"] = "No Articles"
+    elif stats["ingested"] == 0 and stats["skipped_duplicate"] == 0 and not success_like:
+        # includes No Articles / Unavailable-only runs
+        stats["status"] = "No Articles" if not failures else "Failed"
     else:
         stats["status"] = "Success"
 
     return stats
 
+
 __all__ = ["ingest_articles", "_normalize_url", "_parse_rss_feed"]
+

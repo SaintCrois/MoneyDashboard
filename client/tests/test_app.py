@@ -364,11 +364,76 @@ def test_filter_articles_by_source_none_returns_all():
     assert len(filtered) == 2
 
 
-def test_ingestion_status_badge_logic():
-    """_ingestion_status_badge returns correct explicit statuses."""
-    assert app._ingestion_status_badge({"final_status": "Success"}) == "Success"
-    assert app._ingestion_status_badge({"final_status": "Failed"}) == "Failed"
-    assert app._ingestion_status_badge({"final_status": "No Articles"}) == "No Articles"
-    assert app._ingestion_status_badge({"error": "HTTPError: 404"}) == "Failed"
-    assert app._ingestion_status_badge({"parsed": 0, "ingested": 0, "skipped": 0}) == "No Articles"
-    assert app._ingestion_status_badge({"parsed": 5, "ingested": 3, "skipped": 2}) == "Success"
+
+
+# --- Sprint 3 helper tests ---
+
+
+def test_get_company_financials_parses_list(monkeypatch):
+    def fake_get(path, timeout=5, params=None):
+        return _Response([{"id": 1, "company_id": 1, "fiscal_year": 2024, "revenue": 1000.0}])
+
+    monkeypatch.setattr(app.requests, "get", fake_get)
+    records = app.get_company_financials(1)
+    assert len(records) == 1
+    assert records[0]["fiscal_year"] == 2024
+
+
+def test_get_company_financials_empty_on_failure(monkeypatch):
+    def fake_get(path, timeout=5, params=None):
+        raise RuntimeError("fail")
+
+    monkeypatch.setattr(app.requests, "get", fake_get)
+    assert app.get_company_financials(1) == []
+
+
+def test_get_company_financial_analysis(monkeypatch):
+    payload = {
+        "company_id": 1, "records": [], "calculated_metrics": [],
+        "unavailable_metrics": ["all"], "data_sources": [], "notes": [],
+    }
+
+    def fake_get(path, timeout=5, params=None):
+        return _Response(payload)
+
+    monkeypatch.setattr(app.requests, "get", fake_get)
+    data = app.get_company_financial_analysis(1)
+    assert data["company_id"] == 1
+
+
+def test_get_company_market_analysis(monkeypatch):
+    payload = {
+        "company_id": 1, "records": [], "indicators": {}, "unavailable_indicators": ["all"],
+        "data_sources": [], "notes": [],
+    }
+
+    def fake_get(path, timeout=5, params=None):
+        return _Response(payload)
+
+    monkeypatch.setattr(app.requests, "get", fake_get)
+    data = app.get_company_market_analysis(1)
+    assert data["company_id"] == 1
+
+
+def test_get_company_assessments_empty_on_failure(monkeypatch):
+    def fake_get(path, timeout=5, params=None):
+        raise RuntimeError("fail")
+
+    monkeypatch.setattr(app.requests, "get", fake_get)
+    assert app.get_company_assessments(1) == []
+
+
+def test_generate_assessments_posts_payload(monkeypatch):
+    captured = {}
+
+    def fake_post(path, json=None, timeout=5):
+        captured["path"] = path
+        captured["json"] = json
+        return _Response([{"id": 1, "company_id": 1, "event_id": 2, "impact_type": "Positive"}], status_code=201)
+
+    monkeypatch.setattr(app.requests, "post", fake_post)
+    result = app.generate_assessments(1, event_id=2)
+    assert captured["path"].endswith("/api/assessments/generate")
+    assert captured["json"] == {"company_id": 1, "event_id": 2}
+    assert isinstance(result, list)
+    assert result[0]["impact_type"] == "Positive"

@@ -27,58 +27,33 @@ industries.
 ```text
 Hackathon/
 ├── client/
-│   ├── app.py               # Streamlit frontend
+│   ├── app.py               # Streamlit frontend (Dashboard/Events/Companies/Analysis)
 │   ├── requirements.txt
 │   └── tests/
-│       └── test_app.py
 ├── server/
 │   ├── app/
-│   │   ├── __init__.py
 │   │   ├── main.py          # FastAPI entry point
 │   │   ├── database.py      # SQLAlchemy connection & session
-│   │   ├── api/
-│   │   │   ├── __init__.py
-│   │   │   ├── health.py       # GET /health
-│   │   │   ├── companies.py    # GET/POST /api/companies
-│   │   │   ├── industries.py   # GET/POST /api/industries
-│   │   │   ├── news.py         # GET /api/news, POST /api/news/ingest
-│   │   │   └── events.py       # GET /api/events (+ processing & mapping)
+│   │   ├── api/             # health, companies, industries, news, events, financials, market, assessments
 │   │   ├── models/          # SQLAlchemy models
-│   │   │   ├── __init__.py
-│   │   │   ├── news_article.py
-│   │   │   ├── event.py
-│   │   │   ├── industry.py
-│   │   │   ├── company.py
-│   │   │   ├── event_industry.py
-│   │   │   ├── event_company.py
-│   │   │   ├── financial_data.py
-│   │   │   ├── market_data.py
-│   │   │   └── impact_assessment.py
 │   │   ├── schemas/         # Pydantic request/response schemas
-│   │   │   ├── __init__.py
-│   │   │   ├── company.py
-│   │   │   └── industry.py
-│   │   └── services/        # Business logic (future sprints)
+│   │   └── services/        # news ingestion/relevance, event/mapping, SET sync, financial/market/assessment
+│   ├── data/
+│   │   └── set_companies_template.csv  # documented SET company CSV fallback template
 │   ├── scripts/
-│   │   ├── __init__.py
-│   │   ├── init_db.py       # Create all tables (idempotent)
-│   │   └── seed_data.py     # Idempotent reference data seed
-│   ├── tests/
-│   │   ├── conftest.py
-│   │   ├── test_database.py
-│   │   └── test_api.py
+│   │   ├── init_db.py
+│   │   ├── seed_data.py
+│   │   ├── migrate_sprint2.py
+│   │   ├── migrate_sprint3.py
+│   │   └── migrate_news_matching.py
+│   ├── tests/               # API, service, integration, regression tests
 │   └── requirements.txt
 ├── database/
 │   └── init.sql
 ├── documents/
-│   ├── srs.md
-│   ├── sts.md
-│   ├── sds.md
-│   └── plan.md
+│   ├── srs.md, sts.md, sds.md, plan.md
 ├── docker-compose.yml
 ├── .env.example
-├── .env
-├── .gitignore
 └── README.md
 ```
 
@@ -124,7 +99,7 @@ and adjust values as needed:
 copy .env.example .env
 ```
 
-`.env.example` contains all required variables:
+`.env.example` contains required and optional variables:
 
 | Variable | Description | Example |
 |---|---|---|
@@ -133,12 +108,18 @@ copy .env.example .env
 | POSTGRES_PASSWORD | PostgreSQL password | change_this_password |
 | DATABASE_URL | SQLAlchemy database URL | postgresql://radar_user:...@localhost:5432/investment_radar |
 | BACKEND_URL | FastAPI backend base URL | http://localhost:8000 |
+| SET_COMPANY_API_URL | (Optional) Official/authorized SET company reference API endpoint | *(unset by default)* |
+| SET_COMPANY_API_KEY | (Optional) API credential for SET company API | *(unset by default)* |
+| SET_COMPANY_API_KEY_HEADER | (Optional) Header name for API key (default Authorization) | Authorization |
+| SET_COMPANY_CSV_PATH | (Optional) Path to documented company CSV fallback | server/data/set_companies_template.csv |
+| NEWS_SOURCES_JSON | (Optional) JSON override for configured news sources | *(unset by default)* |
 
 ### Security
 
 - `.env` is ignored by Git (see `.gitignore`).
 - `.venv`, `__pycache__`, and generated files are ignored by Git.
 - Never commit `.env` or any secrets/credentials.
+- SET/company sync uses official/authorized APIs when configured; credentials must come from environment variables. No undocumented scraping or access bypass is implemented. If official API access is unavailable/unauthorized, a documented CSV fallback can be used.
 
 ## PostgreSQL Startup
 

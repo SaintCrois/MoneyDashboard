@@ -255,30 +255,28 @@ def test_ingest_articles_partial_success(mock_fetch, db):
     assert statuses["Bad Feed"] == "Failed"
 
 
-def test_default_sources_are_current_working_feeds():
-    """Regression: default sources must be the verified working RSS feeds.
-
-    The stale configuration (Bangkok Post 404, The Nation returns HTML,
-    Reuters 401) must not be present in DEFAULT_SOURCES.
-    """
+def test_default_sources_configuration_verified():
+    """Default sources prioritize verified Thai English feeds; unavailable publishers recorded."""
     urls = [s.url for s in DEFAULT_SOURCES]
     names = [s.name for s in DEFAULT_SOURCES]
+    by_name = {s.name: s for s in DEFAULT_SOURCES}
 
-    stale_urls = {
-        "https://www.bangkokpost.com/rss/data.xml",
-        "https://www.nationthailand.com/rss/",
-        "https://www.reuters.com/business/finance/rss",
-    }
-    stale_names = {"Bangkok Post", "The Nation Thailand", "Reuters Business"}
+    # Must not contain old international/stale defaults
+    assert "https://feeds.bbci.co.uk/news/business/rss.xml" not in urls
+    assert "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US" not in urls
+    assert "https://www.channelnewsasia.com/api/v1/rss-outbound-feed" not in urls
+    assert "https://www.investing.com/rss/news.rss" not in urls
 
-    for url in stale_urls:
-        assert url not in urls, f"Stale broken source URL still configured: {url}"
-    for name in stale_names:
-        assert name not in names, f"Stale broken source name still configured: {name}"
+    # Verified accessible Bangkok Post English RSS feeds enabled
+    assert "https://www.bangkokpost.com/rss/data/business.xml" in urls
+    assert "https://www.bangkokpost.com/rss/data/most-recent.xml" in urls
+    assert by_name["Bangkok Post Business"].enabled is True
+    assert by_name["Bangkok Post Most Recent"].enabled is True
 
-    # Verify current working sources are present
-    assert "https://feeds.bbci.co.uk/news/business/rss.xml" in urls
-    assert "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US" in urls
-    assert "https://www.channelnewsasia.com/api/v1/rss-outbound-feed" in urls
-    assert "https://www.investing.com/rss/news.rss" in urls
-    assert len(DEFAULT_SOURCES) == 4
+    # Required publishers present; unavailable ones must not be fabricated/enabled
+    for required in ("The Nation Thailand", "THE STANDARD Global", "Thai PBS World"):
+        assert required in names
+        assert by_name[required].enabled is False
+        assert by_name[required].url == ""
+        assert by_name[required].notes
+

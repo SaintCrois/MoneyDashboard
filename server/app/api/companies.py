@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.company import Company
 from app.models.industry import Industry
-from app.schemas.company import CompanyCreate, CompanyOut
+from app.schemas.company import CompanyCreate, CompanyOut, CompanySyncResult
+from app.services.set_company_service import sync_companies
 
 router = APIRouter()
 
@@ -20,14 +21,21 @@ def _company_to_out(company: Company, db: Session) -> CompanyOut:
         industry = db.query(Industry).filter(Industry.id == company.industry_id).first()
         if industry:
             industry_name = industry.name
+    # ensure market populated for response compatibility
+    if getattr(company, "market", None) is None and getattr(company, "exchange", None):
+        company.market = company.exchange
     return CompanyOut(
         id=company.id,
         ticker=company.ticker,
         name=company.name,
         exchange=company.exchange,
+        market=getattr(company, "market", None),
+        sector=getattr(company, "sector", None),
         industry_id=company.industry_id,
         industry_name=industry_name,
         description=company.description,
+        source=getattr(company, "source", None),
+        last_synced_at=getattr(company, "last_synced_at", None),
         created_at=company.created_at,
     )
 
@@ -56,19 +64,28 @@ def get_company(company_id: int, db: Session = Depends(get_db)):
 
 @router.post("/companies", response_model=CompanyOut, status_code=status.HTTP_201_CREATED)
 def create_company(company_in: CompanyCreate, db: Session = Depends(get_db)):
-    """Create a company. Rejects duplicate tickers."""
-    existing = db.query(Company).filter(Company.ticker == company_in.ticker).first()
+    """Create a company. Rejects duplicates by (ticker, market)."""
+    market = company_in.market or company_in.exchange or "SET"
+    existing = (
+        db.query(Company)
+        .filter(Company.ticker == company_in.ticker)
+        .filter((Company.market == market) | ((Company.market.is_(None)) & (Company.exchange == market)))
+        .first()
+    )
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Company with ticker '{company_in.ticker}' already exists",
+            detail=f"Company with ticker '{company_in.ticker}' and market '{market}' already exists",
         )
     company = Company(
         ticker=company_in.ticker,
         name=company_in.name,
         exchange=company_in.exchange,
+        market=market,
+        sector=company_in.sector,
         industry_id=company_in.industry_id,
         description=company_in.description,
+        source=company_in.source or "manual",
     )
     db.add(company)
     try:
@@ -77,7 +94,19 @@ def create_company(company_in: CompanyCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Company with ticker '{company_in.ticker}' already exists",
+            detail=f"Company with ticker '{company_in.ticker}' and market '{market}' already exists",
         )
     db.refresh(company)
     return _company_to_out(company, db)
+
+
+@router.post("/companies/sync", response_model=CompanySyncResult, status_code=status.HTTP_200_OK)
+def sync_companies_from_set(db: Session = Depends(get_db)):
+    """Synchronize listed companies from official SET source or configured CSV fallback.
+
+    Never fabricates records or claims success without verification. Returns
+    actual counts and any errors encountered.
+    """
+    result = sync_companies(db)
+    return CompanySyncResult(**result)
+
