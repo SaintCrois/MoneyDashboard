@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -20,6 +20,9 @@ class EventCompany(Base):
     )
     impact_type: Mapped[str] = mapped_column(String(50), nullable=False)
     exposure_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    relevance_score: Mapped[Optional[float]] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
     explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (

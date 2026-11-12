@@ -1,7 +1,8 @@
 """AI Investment Impact Radar - Streamlit frontend.
 
-Sprint 1: basic application shell. Data is retrieved exclusively through the
-FastAPI backend; Streamlit never connects to PostgreSQL directly.
+Sprint 1 + Sprint 2: application shell plus a working Events page. All data is
+retrieved exclusively through the FastAPI backend; Streamlit never connects to
+PostgreSQL directly.
 """
 
 import os
@@ -9,15 +10,36 @@ from typing import Optional
 
 import requests
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
-REQUEST_TIMEOUT = 5
+REQUEST_TIMEOUT = 10
 
 
-def api_get(path: str) -> Optional[dict]:
+# ---------------------------------------------------------------------------
+# API helpers
+# ---------------------------------------------------------------------------
+
+def api_get(path: str, params: Optional[dict] = None) -> Optional[dict]:
     """Make a GET request to the backend, returning None on failure."""
     try:
-        response = requests.get(f"{BACKEND_URL}{path}", timeout=REQUEST_TIMEOUT)
+        response = requests.get(
+            f"{BACKEND_URL}{path}", params=params, timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return None
+
+
+def api_post(path: str, json: Optional[dict] = None) -> Optional[dict]:
+    """Make a POST request to the backend, returning None on failure."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}{path}", json=json, timeout=REQUEST_TIMEOUT
+        )
         response.raise_for_status()
         return response.json()
     except Exception:
@@ -45,6 +67,98 @@ def get_industries() -> list[dict]:
     return data if isinstance(data, list) else []
 
 
+def get_articles(
+    skip: int = 0, limit: int = 50
+) -> list[dict]:
+    """Retrieve news articles from the backend."""
+    data = api_get("/api/news", params={"skip": skip, "limit": limit})
+    return data if isinstance(data, list) else []
+
+
+def get_article(article_id: int) -> Optional[dict]:
+    """Retrieve a single news article by ID."""
+    return api_get(f"/api/news/{article_id}")
+
+
+def ingest_articles() -> Optional[dict]:
+    """Trigger news ingestion from configured sources."""
+    return api_post("/api/news/ingest")
+
+
+def get_news_sources() -> list[dict]:
+    """Retrieve the list of configured news sources."""
+    data = api_get("/api/news/sources")
+    return data if isinstance(data, list) else []
+
+
+def filter_articles_by_source(
+    articles: list[dict], source_name: Optional[str]
+) -> list[dict]:
+    """Filter articles by source name. 'All Sources' or None returns all."""
+    if not source_name or source_name == "All Sources":
+        return articles
+    return [a for a in articles if (a.get("source") or "") == source_name]
+
+
+def get_events(
+    skip: int = 0, limit: int = 50, category: Optional[str] = None
+) -> list[dict]:
+    """Retrieve events from the backend, optionally filtered by category."""
+    params: dict = {"skip": skip, "limit": limit}
+    if category:
+        params["category"] = category
+    data = api_get("/api/events", params=params)
+    return data if isinstance(data, list) else []
+
+
+def get_event(event_id: int) -> Optional[dict]:
+    """Retrieve a single event by ID."""
+    return api_get(f"/api/events/{event_id}")
+
+
+def process_events() -> Optional[dict]:
+    """Trigger processing of unprocessed articles into events."""
+    return api_post("/api/events/process")
+
+
+def get_event_categories() -> list[str]:
+    """Retrieve the list of supported event categories."""
+    data = api_get("/api/events/categories")
+    return [c["category"] for c in data] if isinstance(data, list) else []
+
+
+def get_event_industries(event_id: int) -> list[dict]:
+    """Retrieve industries potentially affected by an event."""
+    data = api_get(f"/api/events/{event_id}/industries")
+    return data if isinstance(data, list) else []
+
+
+def get_event_companies(event_id: int) -> list[dict]:
+    """Retrieve companies potentially affected by an event."""
+    data = api_get(f"/api/events/{event_id}/companies")
+    return data if isinstance(data, list) else []
+
+
+def _ingestion_status_badge(source_result: dict) -> str:
+    """Return explicit ingestion status: Success, No Articles, Failed, Partial Success."""
+    if source_result.get("final_status"):
+        return source_result["final_status"]
+    if source_result.get("error"):
+        return "Failed"
+    parsed = source_result.get("parsed", 0)
+    ingested = source_result.get("ingested", 0)
+    skipped = source_result.get("skipped", 0)
+    if parsed == 0:
+        return "No Articles"
+    if ingested > 0 or skipped > 0:
+        return "Success"
+    return "No Articles"
+
+
+# ---------------------------------------------------------------------------
+# Pages
+# ---------------------------------------------------------------------------
+
 def page_dashboard() -> None:
     st.title("AI Investment Impact Radar")
     st.caption("From Global Events to Investment Insights")
@@ -55,9 +169,7 @@ def page_dashboard() -> None:
     backend_ok = get_backend_status()
     status_color = "green" if backend_ok else "red"
     status_text = "Connected" if backend_ok else "Unavailable"
-    st.markdown(
-        f"Backend connection: :{status_color}[{status_text}]"
-    )
+    st.markdown(f"Backend connection: :{status_color}[{status_text}]")
 
     companies = []
     load_error = None
@@ -99,8 +211,239 @@ def page_dashboard() -> None:
 def page_events() -> None:
     st.title("Events")
     st.caption("From Global Events to Investment Insights")
-    st.info("Placeholder: Event management will be implemented in Sprint 2.")
-    st.write("This page will display detected events and their categories.")
+
+    backend_ok = get_backend_status()
+    if not backend_ok:
+        st.error(
+            "Backend is unavailable. Start the FastAPI backend to view events and articles."
+        )
+        return
+
+    # ---- Controls ----
+    st.subheader("News & Event Intelligence")
+    col_ingest, col_process, col_refresh = st.columns([1, 1, 1])
+    with col_ingest:
+        if st.button("Ingest News", help="Collect articles from configured sources"):
+            with st.spinner("Ingesting news..."):
+                result = ingest_articles()
+            if result:
+                st.session_state["last_ingest_result"] = result
+                st.success(
+                    f"Ingestion complete: {result.get('ingested', 0)} new, "
+                    f"{result.get('skipped_duplicate', 0)} duplicates skipped, "
+                    f"{result.get('errors', 0)} source errors."
+                )
+            else:
+                st.session_state["last_ingest_result"] = None
+                st.error("News ingestion failed.")
+    with col_process:
+        if st.button("Process Events", help="Convert articles into structured events"):
+            with st.spinner("Processing events..."):
+                result = process_events()
+            if result:
+                st.success(
+                    f"Processing complete: {result.get('processed', 0)} events created, "
+                    f"{result.get('errors', 0)} errors."
+                )
+            else:
+                st.error("Event processing failed.")
+    with col_refresh:
+        if st.button("Refresh", help="Reload articles and events"):
+            st.rerun()
+
+    # ---- Per-source ingestion results & health summary ----
+    last_result = st.session_state.get("last_ingest_result")
+    if last_result:
+        st.divider()
+        st.subheader("Per-Source Ingestion Results")
+        sources_data = last_result.get("sources", [])
+        if sources_data:
+            table_rows = []
+            for s in sources_data:
+                table_rows.append(
+                    {
+                        "Source name": s.get("name", "—"),
+                        "Feed URL": s.get("url", "—"),
+                        "HTTP status": s.get("http_status") if s.get("http_status") is not None else "—",
+                        "Content type": s.get("content_type") or "—",
+                        "Articles parsed": s.get("parsed", 0),
+                        "Articles inserted": s.get("ingested", 0),
+                        "Duplicates skipped": s.get("skipped", 0),
+                        "Error": s.get("error") or "—",
+                        "Final status": _ingestion_status_badge(s),
+                    }
+                )
+            st.table(table_rows)
+
+            # Health summary
+            total_sources = len(sources_data)
+            reached = sum(
+                1 for s in sources_data
+                if s.get("http_status") is not None and s.get("error") is None
+            )
+            failed = sum(1 for s in sources_data if s.get("error") is not None)
+            total_parsed = sum(s.get("parsed", 0) for s in sources_data)
+            total_inserted = sum(s.get("ingested", 0) for s in sources_data)
+            total_skipped = sum(s.get("skipped", 0) for s in sources_data)
+
+            st.subheader("Source Health Summary (Current Run)")
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
+            c1.metric("Total sources", total_sources)
+            c2.metric("Reached", reached)
+            c3.metric("Failed", failed)
+            c4.metric("Parsed", total_parsed)
+            c5.metric("Inserted", total_inserted)
+            c6.metric("Duplicates skipped", total_skipped)
+            st.caption(
+                "Historical database article counts are shown separately in the Articles section below."
+            )
+
+    st.divider()
+
+    # ---- Filters ----
+    categories = get_event_categories()
+    configured_sources = get_news_sources()
+    source_names = [s["name"] for s in configured_sources] if configured_sources else []
+
+    # Fallback: if configured sources not available, derive from articles
+    all_articles = get_articles()
+    if not source_names:
+        source_names = sorted({a.get("source", "") for a in all_articles if a.get("source")})
+
+    col_filter1, col_filter2, col_filter3 = st.columns([2, 1, 1])
+    with col_filter1:
+        search = st.text_input(
+            "Search articles or events",
+            placeholder="Keyword search...",
+        )
+    with col_filter2:
+        category_options = ["All"] + categories
+        selected_category = st.selectbox("Category", category_options, index=0)
+    with col_filter3:
+        source_options = ["All Sources"] + source_names
+        selected_source = st.selectbox("News Source", source_options, index=0)
+
+    # ---- News Articles ----
+    st.subheader("Collected News Articles")
+    articles = all_articles  # use already-fetched articles (no extra RSS request)
+    filtered_articles = filter_articles_by_source(articles, selected_source)
+
+    if search:
+        term = search.lower()
+        filtered_articles = [
+            a
+            for a in filtered_articles
+            if term in (a.get("title") or "").lower()
+            or term in (a.get("source") or "").lower()
+            or term in (a.get("summary") or "").lower()
+        ]
+
+    st.caption(
+        f"Showing {len(filtered_articles)} of {len(articles)} articles "
+        f"(historical database count: {len(articles)})."
+    )
+
+    if articles:
+        if not filtered_articles:
+            st.info("No articles match your current filters (source/search).")
+        else:
+            for a in filtered_articles[:20]:
+                with st.container():
+                    st.markdown(
+                        f"**[{a.get('title', 'Untitled')}]({a.get('url', '#')})**"
+                    )
+                    meta = []
+                    if a.get("source"):
+                        meta.append(f"Source: {a['source']}")
+                    if a.get("published_at"):
+                        meta.append(f"Published: {a['published_at'][:10]}")
+                    st.caption(" | ".join(meta))
+                    if a.get("summary"):
+                        st.write(a["summary"][:300])
+                    st.divider()
+    else:
+        st.info("No news articles collected yet. Use 'Ingest News' to collect articles.")
+
+    st.divider()
+
+    # ---- Events ----
+    st.subheader("Detected Events")
+    events = get_events(
+        category=None if selected_category == "All" else selected_category
+    )
+    if events:
+        filtered_events = events
+        if search:
+            term = search.lower()
+            filtered_events = [
+                e
+                for e in events
+                if term in (e.get("title") or "").lower()
+                or term in (e.get("description") or "").lower()
+                or term in (e.get("category") or "").lower()
+            ]
+        if not filtered_events:
+            st.info("No events match your search.")
+        else:
+            for e in filtered_events[:20]:
+                with st.container():
+                    st.markdown(f"### {e.get('title', 'Untitled Event')}")
+                    meta_cols = st.columns(4)
+                    meta_cols[0].caption(f"Category: {e.get('category', 'Uncertain')}")
+                    meta_cols[1].caption(
+                        f"Method: {e.get('classification_method') or '—'}"
+                    )
+                    conf = e.get("confidence_score")
+                    meta_cols[2].caption(
+                        f"Confidence: {conf}" if conf is not None else "Confidence: —"
+                    )
+                    meta_cols[3].caption(
+                        f"Status: {e.get('processing_status', '—')}"
+                    )
+                    if e.get("description"):
+                        st.write(e["description"])
+                    if e.get("event_date"):
+                        st.caption(f"Event date: {e['event_date'][:10]}")
+                    if e.get("source_article_id"):
+                        article = get_article(e["source_article_id"])
+                        if article:
+                            st.caption(
+                                f"Source: [{article.get('source', 'Article')}]({article.get('url', '#')})"
+                            )
+
+                    # Mappings
+                    ind_col, comp_col = st.columns(2)
+                    with ind_col:
+                        st.markdown("**Potentially affected industries**")
+                        industries_map = get_event_industries(e["id"])
+                        if industries_map:
+                            for im in industries_map:
+                                st.write(
+                                    f"- {im.get('industry_name', 'Industry')} "
+                                    f"(impact: {im.get('impact_type', 'Uncertain')}, "
+                                    f"relevance: {im.get('relevance_score') or '—'})\n"
+                                    f"  {im.get('explanation', '')}"
+                                )
+                        else:
+                            st.caption("None mapped yet.")
+                    with comp_col:
+                        st.markdown("**Potentially affected companies**")
+                        companies_map = get_event_companies(e["id"])
+                        if companies_map:
+                            for cm in companies_map:
+                                st.write(
+                                    f"- {cm.get('company_name', 'Company')} "
+                                    f"({cm.get('ticker', '—')}) "
+                                    f"(impact: {cm.get('impact_type', 'Uncertain')}, "
+                                    f"exposure: {cm.get('exposure_type', '—')}, "
+                                    f"relevance: {cm.get('relevance_score') or '—'})\n"
+                                    f"  {cm.get('explanation', '')}"
+                                )
+                        else:
+                            st.caption("None mapped yet.")
+                    st.divider()
+    else:
+        st.info("No events detected yet. Use 'Process Events' to create events from articles.")
 
 
 def page_companies() -> None:
@@ -151,6 +494,10 @@ def main() -> None:
             index=0,
         )
         st.divider()
+        backend_ok = get_backend_status()
+        status_color = "green" if backend_ok else "red"
+        status_text = "Connected" if backend_ok else "Unavailable"
+        st.markdown(f"Backend: :{status_color}[{status_text}]")
         if st.button("Refresh Backend Status"):
             st.rerun()
 
