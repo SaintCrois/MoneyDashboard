@@ -32,4 +32,22 @@ def test_ingest_news_endpoint_returns_stats(client):
     assert "ingested" in data
     assert "skipped_duplicate" in data
     assert "errors" in data
+    assert "status" in data
     assert "sources" in data
+    if data["sources"]:
+        src = data["sources"][0]
+        assert "parsed" in src
+        assert "final_status" in src
+        assert "http_status" in src
+
+
+def test_list_news_sources_endpoint(client):
+    """GET /api/news/sources returns configured news sources."""
+    response = client.get("/api/news/sources")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+    for src in data:
+        assert "name" in src
+        assert "url" in src

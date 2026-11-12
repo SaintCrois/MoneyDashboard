@@ -93,7 +93,7 @@ Hackathon/
 1. Clone or open the repository:
 
    ```powershell
-   cd C:\Users\Cent\Desktop\Hackathon
+   cd <PROJECT_DIRECTORY>
    ```
 
 2. Create and activate the Python virtual environment (already present at `.venv`):

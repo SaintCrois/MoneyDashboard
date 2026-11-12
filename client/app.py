@@ -85,6 +85,21 @@ def ingest_articles() -> Optional[dict]:
     return api_post("/api/news/ingest")
 
 
+def get_news_sources() -> list[dict]:
+    """Retrieve the list of configured news sources."""
+    data = api_get("/api/news/sources")
+    return data if isinstance(data, list) else []
+
+
+def filter_articles_by_source(
+    articles: list[dict], source_name: Optional[str]
+) -> list[dict]:
+    """Filter articles by source name. 'All Sources' or None returns all."""
+    if not source_name or source_name == "All Sources":
+        return articles
+    return [a for a in articles if (a.get("source") or "") == source_name]
+
+
 def get_events(
     skip: int = 0, limit: int = 50, category: Optional[str] = None
 ) -> list[dict]:
@@ -124,6 +139,22 @@ def get_event_companies(event_id: int) -> list[dict]:
     return data if isinstance(data, list) else []
 
 
+def _ingestion_status_badge(source_result: dict) -> str:
+    """Return explicit ingestion status: Success, No Articles, Failed, Partial Success."""
+    if source_result.get("final_status"):
+        return source_result["final_status"]
+    if source_result.get("error"):
+        return "Failed"
+    parsed = source_result.get("parsed", 0)
+    ingested = source_result.get("ingested", 0)
+    skipped = source_result.get("skipped", 0)
+    if parsed == 0:
+        return "No Articles"
+    if ingested > 0 or skipped > 0:
+        return "Success"
+    return "No Articles"
+
+
 # ---------------------------------------------------------------------------
 # Pages
 # ---------------------------------------------------------------------------
@@ -138,9 +169,7 @@ def page_dashboard() -> None:
     backend_ok = get_backend_status()
     status_color = "green" if backend_ok else "red"
     status_text = "Connected" if backend_ok else "Unavailable"
-    st.markdown(
-        f"Backend connection: :{status_color}[{status_text}]"
-    )
+    st.markdown(f"Backend connection: :{status_color}[{status_text}]")
 
     companies = []
     load_error = None
@@ -198,12 +227,14 @@ def page_events() -> None:
             with st.spinner("Ingesting news..."):
                 result = ingest_articles()
             if result:
+                st.session_state["last_ingest_result"] = result
                 st.success(
                     f"Ingestion complete: {result.get('ingested', 0)} new, "
                     f"{result.get('skipped_duplicate', 0)} duplicates skipped, "
                     f"{result.get('errors', 0)} source errors."
                 )
             else:
+                st.session_state["last_ingest_result"] = None
                 st.error("News ingestion failed.")
     with col_process:
         if st.button("Process Events", help="Convert articles into structured events"):
@@ -220,11 +251,66 @@ def page_events() -> None:
         if st.button("Refresh", help="Reload articles and events"):
             st.rerun()
 
+    # ---- Per-source ingestion results & health summary ----
+    last_result = st.session_state.get("last_ingest_result")
+    if last_result:
+        st.divider()
+        st.subheader("Per-Source Ingestion Results")
+        sources_data = last_result.get("sources", [])
+        if sources_data:
+            table_rows = []
+            for s in sources_data:
+                table_rows.append(
+                    {
+                        "Source name": s.get("name", "—"),
+                        "Feed URL": s.get("url", "—"),
+                        "HTTP status": s.get("http_status") if s.get("http_status") is not None else "—",
+                        "Content type": s.get("content_type") or "—",
+                        "Articles parsed": s.get("parsed", 0),
+                        "Articles inserted": s.get("ingested", 0),
+                        "Duplicates skipped": s.get("skipped", 0),
+                        "Error": s.get("error") or "—",
+                        "Final status": _ingestion_status_badge(s),
+                    }
+                )
+            st.table(table_rows)
+
+            # Health summary
+            total_sources = len(sources_data)
+            reached = sum(
+                1 for s in sources_data
+                if s.get("http_status") is not None and s.get("error") is None
+            )
+            failed = sum(1 for s in sources_data if s.get("error") is not None)
+            total_parsed = sum(s.get("parsed", 0) for s in sources_data)
+            total_inserted = sum(s.get("ingested", 0) for s in sources_data)
+            total_skipped = sum(s.get("skipped", 0) for s in sources_data)
+
+            st.subheader("Source Health Summary (Current Run)")
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
+            c1.metric("Total sources", total_sources)
+            c2.metric("Reached", reached)
+            c3.metric("Failed", failed)
+            c4.metric("Parsed", total_parsed)
+            c5.metric("Inserted", total_inserted)
+            c6.metric("Duplicates skipped", total_skipped)
+            st.caption(
+                "Historical database article counts are shown separately in the Articles section below."
+            )
+
     st.divider()
 
     # ---- Filters ----
     categories = get_event_categories()
-    col_filter1, col_filter2 = st.columns([2, 1])
+    configured_sources = get_news_sources()
+    source_names = [s["name"] for s in configured_sources] if configured_sources else []
+
+    # Fallback: if configured sources not available, derive from articles
+    all_articles = get_articles()
+    if not source_names:
+        source_names = sorted({a.get("source", "") for a in all_articles if a.get("source")})
+
+    col_filter1, col_filter2, col_filter3 = st.columns([2, 1, 1])
     with col_filter1:
         search = st.text_input(
             "Search articles or events",
@@ -233,23 +319,33 @@ def page_events() -> None:
     with col_filter2:
         category_options = ["All"] + categories
         selected_category = st.selectbox("Category", category_options, index=0)
+    with col_filter3:
+        source_options = ["All Sources"] + source_names
+        selected_source = st.selectbox("News Source", source_options, index=0)
 
     # ---- News Articles ----
     st.subheader("Collected News Articles")
-    articles = get_articles()
+    articles = all_articles  # use already-fetched articles (no extra RSS request)
+    filtered_articles = filter_articles_by_source(articles, selected_source)
+
+    if search:
+        term = search.lower()
+        filtered_articles = [
+            a
+            for a in filtered_articles
+            if term in (a.get("title") or "").lower()
+            or term in (a.get("source") or "").lower()
+            or term in (a.get("summary") or "").lower()
+        ]
+
+    st.caption(
+        f"Showing {len(filtered_articles)} of {len(articles)} articles "
+        f"(historical database count: {len(articles)})."
+    )
+
     if articles:
-        filtered_articles = articles
-        if search:
-            term = search.lower()
-            filtered_articles = [
-                a
-                for a in articles
-                if term in (a.get("title") or "").lower()
-                or term in (a.get("source") or "").lower()
-                or term in (a.get("summary") or "").lower()
-            ]
         if not filtered_articles:
-            st.info("No articles match your search.")
+            st.info("No articles match your current filters (source/search).")
         else:
             for a in filtered_articles[:20]:
                 with st.container():
@@ -325,8 +421,8 @@ def page_events() -> None:
                                 st.write(
                                     f"- {im.get('industry_name', 'Industry')} "
                                     f"(impact: {im.get('impact_type', 'Uncertain')}, "
-                                    f"relevance: {im.get('relevance_score') or '—'})"
-                                    f"\n  {im.get('explanation', '')}"
+                                    f"relevance: {im.get('relevance_score') or '—'})\n"
+                                    f"  {im.get('explanation', '')}"
                                 )
                         else:
                             st.caption("None mapped yet.")
@@ -340,8 +436,8 @@ def page_events() -> None:
                                     f"({cm.get('ticker', '—')}) "
                                     f"(impact: {cm.get('impact_type', 'Uncertain')}, "
                                     f"exposure: {cm.get('exposure_type', '—')}, "
-                                    f"relevance: {cm.get('relevance_score') or '—'})"
-                                    f"\n  {cm.get('explanation', '')}"
+                                    f"relevance: {cm.get('relevance_score') or '—'})\n"
+                                    f"  {cm.get('explanation', '')}"
                                 )
                         else:
                             st.caption("None mapped yet.")

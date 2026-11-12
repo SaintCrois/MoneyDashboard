@@ -29,11 +29,31 @@ class NewsArticleOut(NewsArticleBase):
     created_at: datetime
 
 
+class NewsIngestSourceResult(BaseModel):
+    name: str
+    url: str
+    type: Optional[str] = None
+    http_status: Optional[int] = None
+    content_type: Optional[str] = None
+    parsed: int = 0
+    ingested: int = 0
+    skipped: int = 0
+    error: Optional[str] = None
+    final_status: str
+
+
 class NewsIngestStats(BaseModel):
     ingested: int
     skipped_duplicate: int
     errors: int
-    sources: list[dict]
+    status: str
+    sources: list[NewsIngestSourceResult]
 
 
-__all__ = ["NewsArticleBase", "NewsArticleCreate", "NewsArticleOut", "NewsIngestStats"]
+__all__ = [
+    "NewsArticleBase",
+    "NewsArticleCreate",
+    "NewsArticleOut",
+    "NewsIngestSourceResult",
+    "NewsIngestStats",
+]

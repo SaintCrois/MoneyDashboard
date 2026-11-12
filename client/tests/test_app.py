@@ -293,3 +293,82 @@ def test_ingest_and_process_return_none_on_failure(monkeypatch):
     monkeypatch.setattr(app.requests, "post", fake_post)
     assert app.ingest_articles() is None
     assert app.process_events() is None
+
+
+def test_get_news_sources_parses_list(monkeypatch):
+    """get_news_sources returns the configured source list."""
+
+    def fake_get(path, timeout=5, params=None):
+        if path.endswith("/api/news/sources"):
+            return _Response([
+                {"name": "BBC Business", "url": "https://feeds.bbci.co.uk/news/business/rss.xml", "type": "rss", "enabled": True},
+                {"name": "Yahoo Finance", "url": "https://feeds.finance.yahoo.com/rss/2.0/headline", "type": "rss", "enabled": True},
+            ])
+        return _Response([])
+
+    monkeypatch.setattr(app.requests, "get", fake_get)
+    sources = app.get_news_sources()
+    assert len(sources) == 2
+    assert sources[0]["name"] == "BBC Business"
+
+
+def test_get_news_sources_empty_on_failure(monkeypatch):
+    """get_news_sources returns empty list on backend failure."""
+
+    def fake_get(path, timeout=5, params=None):
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr(app.requests, "get", fake_get)
+    assert app.get_news_sources() == []
+
+
+def test_filter_articles_by_source_individual():
+    """filter_articles_by_source filters by a specific source name."""
+    articles = [
+        {"id": 1, "source": "BBC Business", "title": "A"},
+        {"id": 2, "source": "Yahoo Finance", "title": "B"},
+        {"id": 3, "source": "BBC Business", "title": "C"},
+    ]
+    filtered = app.filter_articles_by_source(articles, "BBC Business")
+    assert len(filtered) == 2
+    assert all(a["source"] == "BBC Business" for a in filtered)
+
+
+def test_filter_articles_by_source_all_sources():
+    """filter_articles_by_source returns all articles for 'All Sources'."""
+    articles = [
+        {"id": 1, "source": "BBC Business", "title": "A"},
+        {"id": 2, "source": "Yahoo Finance", "title": "B"},
+    ]
+    filtered = app.filter_articles_by_source(articles, "All Sources")
+    assert len(filtered) == 2
+
+
+def test_filter_articles_by_source_unknown():
+    """filter_articles_by_source returns empty for an unknown source."""
+    articles = [
+        {"id": 1, "source": "BBC Business", "title": "A"},
+        {"id": 2, "source": "Yahoo Finance", "title": "B"},
+    ]
+    filtered = app.filter_articles_by_source(articles, "NonExistent Source")
+    assert len(filtered) == 0
+
+
+def test_filter_articles_by_source_none_returns_all():
+    """filter_articles_by_source returns all articles when source is None."""
+    articles = [
+        {"id": 1, "source": "BBC Business", "title": "A"},
+        {"id": 2, "source": "Yahoo Finance", "title": "B"},
+    ]
+    filtered = app.filter_articles_by_source(articles, None)
+    assert len(filtered) == 2
+
+
+def test_ingestion_status_badge_logic():
+    """_ingestion_status_badge returns correct explicit statuses."""
+    assert app._ingestion_status_badge({"final_status": "Success"}) == "Success"
+    assert app._ingestion_status_badge({"final_status": "Failed"}) == "Failed"
+    assert app._ingestion_status_badge({"final_status": "No Articles"}) == "No Articles"
+    assert app._ingestion_status_badge({"error": "HTTPError: 404"}) == "Failed"
+    assert app._ingestion_status_badge({"parsed": 0, "ingested": 0, "skipped": 0}) == "No Articles"
+    assert app._ingestion_status_badge({"parsed": 5, "ingested": 3, "skipped": 2}) == "Success"

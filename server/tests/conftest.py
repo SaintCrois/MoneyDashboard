@@ -46,7 +46,11 @@ def db():
         yield session
     finally:
         session.close()
-        transaction.rollback()
+        try:
+            if transaction.is_active:
+                transaction.rollback()
+        except Exception:
+            pass
         connection.close()
 
 

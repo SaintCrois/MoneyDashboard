@@ -61,6 +61,12 @@ VALID_ATOM = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 
+VALID_FEED_RESPONSE = {"body": VALID_RSS, "http_status": 200, "content_type": "application/rss+xml"}
+EMPTY_FEED_RESPONSE = {"body": EMPTY_RSS, "http_status": 200, "content_type": "application/rss+xml"}
+MALFORMED_FEED_RESPONSE = {"body": MALFORMED_XML, "http_status": 200, "content_type": "text/html"}
+ATOM_FEED_RESPONSE = {"body": VALID_ATOM, "http_status": 200, "content_type": "application/atom+xml"}
+
+
 def test_normalize_url_strips_query_and_trailing_slash():
     """URL normalization dedups consistently."""
     assert _normalize_url("https://example.com/a?utm=x") == "https://example.com/a"
@@ -116,7 +122,7 @@ def test_parse_rss_feed_missing_fields_skipped():
     assert articles[0]["url"] == "https://example.com/valid"
 
 
-@patch("app.services.news_service._fetch_feed", return_value=VALID_RSS)
+@patch("app.services.news_service._fetch_feed", return_value=VALID_FEED_RESPONSE)
 def test_ingest_articles_creates_records(mock_fetch, db):
     """Valid articles are ingested and stored."""
     source = NewsSource(
@@ -128,6 +134,10 @@ def test_ingest_articles_creates_records(mock_fetch, db):
     assert stats["ingested"] == 2, stats
     assert stats["errors"] == 0, stats
     assert stats["sources"][0]["parsed"] == 2
+    assert stats["sources"][0]["http_status"] == 200
+    assert stats["sources"][0]["content_type"] == "application/rss+xml"
+    assert stats["sources"][0]["final_status"] == "Success"
+    assert stats["status"] == "Success"
     assert db.query(NewsArticle).filter(
         NewsArticle.url == "https://example.com/oil-prices-rise"
     ).first() is not None
@@ -136,7 +146,7 @@ def test_ingest_articles_creates_records(mock_fetch, db):
     ).first() is not None
 
 
-@patch("app.services.news_service._fetch_feed", return_value=VALID_RSS)
+@patch("app.services.news_service._fetch_feed", return_value=VALID_FEED_RESPONSE)
 def test_ingest_articles_prevents_duplicates(mock_fetch, db):
     """Re-ingesting the same URL skips duplicates."""
     source = NewsSource(
@@ -166,9 +176,12 @@ def test_ingest_articles_handles_http_error(mock_fetch, db):
     assert stats["errors"] == 1, stats
     assert stats["ingested"] == 0
     assert stats["sources"][0]["error"] is not None
+    assert stats["sources"][0]["http_status"] == 404
+    assert stats["sources"][0]["final_status"] == "Failed"
+    assert stats["status"] == "Failed"
 
 
-@patch("app.services.news_service._fetch_feed", return_value=MALFORMED_XML)
+@patch("app.services.news_service._fetch_feed", return_value=MALFORMED_FEED_RESPONSE)
 def test_ingest_articles_handles_malformed_xml(mock_fetch, db):
     """A malformed XML source is logged and does not crash ingestion."""
     source = NewsSource(
@@ -180,9 +193,11 @@ def test_ingest_articles_handles_malformed_xml(mock_fetch, db):
     assert stats["errors"] == 0, stats  # parse failure is handled, not an exception
     assert stats["ingested"] == 0
     assert stats["sources"][0]["parsed"] == 0
+    assert stats["sources"][0]["final_status"] == "No Articles"
+    assert stats["status"] == "No Articles"
 
 
-@patch("app.services.news_service._fetch_feed", return_value=EMPTY_RSS)
+@patch("app.services.news_service._fetch_feed", return_value=EMPTY_FEED_RESPONSE)
 def test_ingest_articles_empty_feed(mock_fetch, db):
     """An empty feed ingests zero articles without error."""
     source = NewsSource(
@@ -194,9 +209,11 @@ def test_ingest_articles_empty_feed(mock_fetch, db):
     assert stats["ingested"] == 0, stats
     assert stats["errors"] == 0, stats
     assert stats["sources"][0]["parsed"] == 0
+    assert stats["sources"][0]["final_status"] == "No Articles"
+    assert stats["status"] == "No Articles"
 
 
-@patch("app.services.news_service._fetch_feed", return_value=VALID_ATOM)
+@patch("app.services.news_service._fetch_feed", return_value=ATOM_FEED_RESPONSE)
 def test_ingest_articles_atom_feed(mock_fetch, db):
     """A valid Atom feed ingests articles."""
     source = NewsSource(
@@ -213,6 +230,29 @@ def test_ingest_articles_atom_feed(mock_fetch, db):
     assert db.query(NewsArticle).filter(
         NewsArticle.url == "https://example.com/atom-two"
     ).first() is not None
+
+
+@patch("app.services.news_service._fetch_feed")
+def test_ingest_articles_partial_success(mock_fetch, db):
+    """When some sources succeed and some fail, overall status is Partial Success."""
+    def side_effect(url, timeout=15):
+        if "good.example.com" in url:
+            return VALID_FEED_RESPONSE
+        raise HTTPError(url, 500, "Internal Server Error", {}, None)
+
+    mock_fetch.side_effect = side_effect
+    sources = [
+        NewsSource(name="Good Feed", url="https://good.example.com/rss", source_type=SOURCE_TYPE_RSS),
+        NewsSource(name="Bad Feed", url="https://bad.example.com/rss", source_type=SOURCE_TYPE_RSS),
+    ]
+    stats = ingest_articles(db, sources=sources)
+
+    assert stats["ingested"] == 2, stats
+    assert stats["errors"] == 1, stats
+    assert stats["status"] == "Partial Success"
+    statuses = {s["name"]: s["final_status"] for s in stats["sources"]}
+    assert statuses["Good Feed"] == "Success"
+    assert statuses["Bad Feed"] == "Failed"
 
 
 def test_default_sources_are_current_working_feeds():

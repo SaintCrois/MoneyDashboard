@@ -73,11 +73,21 @@ def _parse_rss_datetime(value: Optional[str]) -> Optional[datetime]:
     return None
 
 
-def _fetch_feed(url: str, timeout: int = REQUEST_TIMEOUT_SECONDS) -> str:
-    """Fetch the raw feed XML from a source URL with appropriate headers."""
+def _fetch_feed(url: str, timeout: int = REQUEST_TIMEOUT_SECONDS) -> dict:
+    """Fetch the raw feed XML from a source URL with appropriate headers.
+
+    Returns a dict with ``body`` (str), ``http_status`` (int | None), and
+    ``content_type`` (str | None).
+    """
     req = Request(url, headers=REQUEST_HEADERS)
     with urlopen(req, timeout=timeout) as response:
-        return response.read().decode("utf-8", errors="replace")
+        status = getattr(response, "status", None)
+        if status is None and hasattr(response, "getcode"):
+            status = response.getcode()
+        headers = getattr(response, "headers", None)
+        content_type = headers.get("Content-Type") if headers else None
+        body = response.read().decode("utf-8", errors="replace")
+        return {"body": body, "http_status": status, "content_type": content_type}
 
 
 def _atom_link(element) -> Optional[str]:
@@ -190,6 +200,7 @@ def ingest_articles(
         "ingested": 0,
         "skipped_duplicate": 0,
         "errors": 0,
+        "status": "No Articles",
         "sources": [],
     }
 
@@ -200,16 +211,21 @@ def ingest_articles(
             "name": source.name,
             "url": source.url,
             "type": source.source_type,
+            "http_status": None,
+            "content_type": None,
             "ingested": 0,
             "skipped": 0,
             "parsed": 0,
             "error": None,
+            "final_status": "Failed",
         }
 
         try:
             if source.source_type == "rss":
-                xml_text = _fetch_feed(source.url)
-                parsed = _parse_rss_feed(xml_text, source.name)
+                fetch = _fetch_feed(source.url)
+                source_result["http_status"] = fetch.get("http_status")
+                source_result["content_type"] = fetch.get("content_type")
+                parsed = _parse_rss_feed(fetch.get("body", ""), source.name)
             else:
                 logger.warning(
                     "Unsupported source type %s for %s", source.source_type, source.name
@@ -237,30 +253,45 @@ def ingest_articles(
 
             db.commit()
 
+            if source_result["parsed"] == 0:
+                source_result["final_status"] = "No Articles"
+            elif source_result["ingested"] > 0 or source_result["skipped"] > 0:
+                source_result["final_status"] = "Success"
+            else:
+                source_result["final_status"] = "No Articles"
+
         except (URLError, HTTPError, OSError, ET.ParseError) as exc:
             db.rollback()
             logger.error("Ingestion error for source %s: %s", source.name, exc)
             stats["errors"] += 1
-            stats["sources"].append(
-                {
-                    **source_result,
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
-            )
+            if isinstance(exc, HTTPError):
+                source_result["http_status"] = exc.code
+                ct = exc.headers.get("Content-Type") if exc.headers else None
+                source_result["content_type"] = ct
+            source_result["error"] = f"{type(exc).__name__}: {exc}"
+            source_result["final_status"] = "Failed"
+            stats["sources"].append(source_result)
             continue
         except Exception as exc:  # noqa: BLE001 - never crash the whole pipeline
             db.rollback()
             logger.exception("Unexpected ingestion error for source %s", source.name)
             stats["errors"] += 1
-            stats["sources"].append(
-                {
-                    **source_result,
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
-            )
+            source_result["error"] = f"{type(exc).__name__}: {exc}"
+            source_result["final_status"] = "Failed"
+            stats["sources"].append(source_result)
             continue
 
         stats["sources"].append(source_result)
+
+    # Compute overall status after processing all sources.
+    if stats["errors"] > 0 and (stats["ingested"] > 0 or stats["skipped_duplicate"] > 0):
+        stats["status"] = "Partial Success"
+    elif stats["errors"] > 0 and stats["ingested"] == 0 and stats["skipped_duplicate"] == 0:
+        stats["status"] = "Failed"
+    elif stats["ingested"] == 0 and stats["skipped_duplicate"] == 0:
+        stats["status"] = "No Articles"
+    else:
+        stats["status"] = "Success"
 
     return stats
 

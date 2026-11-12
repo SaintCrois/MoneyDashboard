@@ -30,6 +30,17 @@ def list_news(
     return articles
 
 
+@router.get("/news/sources")
+def list_news_sources():
+    """Return the list of configured news sources for UI filtering."""
+    from app.services.news_sources import DEFAULT_SOURCES
+
+    return [
+        {"name": s.name, "url": s.url, "type": s.source_type, "enabled": s.enabled}
+        for s in DEFAULT_SOURCES
+    ]
+
+
 @router.get("/news/{article_id}", response_model=NewsArticleOut)
 def get_news_article(article_id: int, db: Session = Depends(get_db)):
     """Retrieve a single news article by ID."""
@@ -39,6 +50,17 @@ def get_news_article(article_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND, detail="News article not found"
         )
     return article
+
+
+@router.get("/news/sources")
+def list_news_sources():
+    """Return the list of configured news sources for UI filtering."""
+    from app.services.news_sources import DEFAULT_SOURCES
+
+    return [
+        {"name": s.name, "url": s.url, "type": s.source_type, "enabled": s.enabled}
+        for s in DEFAULT_SOURCES
+    ]
 
 
 @router.post("/news/ingest", response_model=NewsIngestStats, status_code=status.HTTP_200_OK)
