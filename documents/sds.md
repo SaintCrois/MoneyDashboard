@@ -664,18 +664,41 @@ This section distinguishes the initial development foundation from planned funct
 |---|---|
 | Git repository | Initialized / configured for GitHub upload. |
 | Python virtual environment | Created. |
-| Streamlit application | Initial application skeleton created. |
-| FastAPI application | Initial application skeleton created. |
-| PostgreSQL | Running through Docker Compose. |
+| Streamlit application | Basic application shell implemented (Dashboard, Events, Companies, Analysis). |
+| FastAPI application | Implemented: `/health`, `/api/companies`, `/api/industries` endpoints. |
+| PostgreSQL | Running through Docker Compose (PostgreSQL 16). |
 | Database connectivity | Connection test successful. |
-| Database models | Not yet implemented. |
-| Database tables | Not yet implemented. |
-| API endpoints | Health endpoint implemented; remaining endpoints planned. |
-| News collection | Planned. |
-| AI analysis | Planned. |
-| Financial analysis | Planned. |
-| Market activity analysis | Planned. |
-| Investment dashboard | Initial skeleton only. |
+| Database models | Implemented (9 SQLAlchemy models with relationships, constraints, indexes). |
+| Database tables | Implemented via `Base.metadata.create_all` (idempotent, non-destructive). |
+| API endpoints | Health, companies, industries implemented; remaining endpoints planned. |
+| Database initialization | `server/scripts/init_db.py` (reusable, non-destructive). |
+| Reference data seed | `server/scripts/seed_data.py` (idempotent, illustrative only). |
+| Automated tests | Implemented: 20 backend + 8 frontend tests, all passing. |
+| Frontend-backend communication | Verified; Streamlit retrieves data via FastAPI only. |
+| News collection | Planned (Sprint 2). |
+| AI analysis | Planned (Sprint 3). |
+| Financial analysis | Planned (Sprint 3). |
+| Market activity analysis | Planned (Sprint 3). |
+| Investment dashboard | Basic shell implemented; full dashboard planned (Sprint 4). |
+
+### Sprint 1 Implementation Notes
+
+- **Database design:** 9 tables (`news_articles`, `events`, `industries`, `companies`,
+  `event_industries`, `event_companies`, `financial_data`, `market_data`,
+  `impact_assessments`) with primary keys, foreign keys, unique constraints
+  (company ticker, event–industry, event–company, company–fiscal year), and
+  indexes on foreign keys and ticker. Financial values use `Numeric` precision;
+  timestamps are timezone-aware.
+- **API structure:** FastAPI routers under `server/app/api/` (`health`,
+  `companies`, `industries`), Pydantic schemas under `server/app/schemas/`,
+  reusable `get_db` session dependency in `server/app/database.py`.
+- **Frontend architecture:** Streamlit single-page app (`client/app.py`) with
+  sidebar navigation. All data is retrieved through the FastAPI backend;
+  Streamlit never connects to PostgreSQL directly. Backend failures are handled
+  gracefully with user-visible messages.
+- **ORM relationships:** `Industry.companies` ↔ `Company.industry`; relationship
+  rows cascade on delete for event/industry/company associations.
+
 
 ---
 

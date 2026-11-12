@@ -1,0 +1,30 @@
+"""EventCompany model: connects events with potentially affected companies."""
+
+from typing import Optional
+
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class EventCompany(Base):
+    __tablename__ = "event_companies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    event_id: Mapped[int] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    impact_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    exposure_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("event_id", "company_id", name="uq_event_company"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<EventCompany(event_id={self.event_id}, company_id={self.company_id})>"
