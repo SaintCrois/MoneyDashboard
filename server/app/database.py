@@ -5,11 +5,13 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
 engine = create_engine(
     DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 )
-
-engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -18,3 +20,11 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

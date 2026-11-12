@@ -256,18 +256,46 @@ A testing phase may be considered complete when:
 
 ## 9. Test Execution Results
 
-Actual results shall be recorded after test execution.
+Actual results recorded after test execution. Sprint 1 tests were executed with
+Pytest against the configured PostgreSQL database and the running FastAPI
+backend. Sprint 2+ features (news collection, event processing, financial
+analysis, market analysis, AI assessment, full dashboard UI) are not part of
+Sprint 1 and were not executed.
 
 | Test ID | Actual Result | Status | Remarks |
 |---|---|---|---|
-| TEST-DB-01 | Pending | Not Run | |
-| TEST-API-01 | Pending | Not Run | |
-| TEST-EVT-01 | Pending | Not Run | |
-| TEST-IMP-01 | Pending | Not Run | |
-| TEST-FIN-01 | Pending | Not Run | |
-| TEST-MKT-01 | Pending | Not Run | |
-| TEST-AI-01 | Pending | Not Run | |
-| TEST-UI-01 | Pending | Not Run | |
+| TEST-DB-01 | PostgreSQL connection succeeds (SELECT version()). | Passed | `server/tests/test_database.py::test_database_connection` |
+| TEST-DB-02 | Database query returns expected result. | Passed | `test_create_and_read_company`, `test_get_companies` |
+| TEST-DB-03 | Nonexistent record handled correctly. | Passed | `test_get_company_not_found` (API 404) |
+| TEST-API-01 | Health endpoint returns successful status. | Passed | `test_health_endpoint` |
+| TEST-API-02 | Invalid API request returns appropriate error. | Passed | `test_create_company_missing_required_field`, `test_create_industry_missing_name` |
+| TEST-EVT-01 | Not implemented in Sprint 1. | Not Run | News collection is a Sprint 2 feature. |
+| TEST-IMP-01 | Not implemented in Sprint 1. | Not Run | Event processing is a Sprint 2 feature. |
+| TEST-FIN-01 | Not implemented in Sprint 1. | Not Run | Financial analysis is a Sprint 3 feature. |
+| TEST-MKT-01 | Not implemented in Sprint 1. | Not Run | Market analysis is a Sprint 3 feature. |
+| TEST-AI-01 | Not implemented in Sprint 1. | Not Run | AI assessment is a Sprint 3 feature. |
+| TEST-UI-01 | Frontend helper functions verified; headless dashboard not executed. | Passed (partial) | `client/tests/test_app.py` helpers pass; dashboard UI not headless-tested. |
+
+Additional Sprint 1 tests executed (all passing):
+
+**Backend (`server/tests`):** 20 passed
+- Database: connection, tables created, create/read company, FK relationship,
+  unique ticker constraint, unique company/fiscal-year constraint, model
+  registration, supported event categories.
+- API: health, list companies, industry filter, get company by ID, 404 not
+  found, create company, duplicate ticker rejection, missing required field,
+  list industries, create industry, duplicate name rejection, missing name.
+
+**Frontend (`client/tests`):** 8 passed
+- Backend status (true/false/bad status), company list parsing, empty-on-failure,
+  industry filter path, industry list parsing, empty-on-failure.
+
+Command executed:
+```powershell
+python -m pytest server/tests client/tests -v
+```
+
+Result: 28 passed, 0 failed.
 
 **Status definitions:**
 - Passed: Actual result matches expected result.
