@@ -483,3 +483,35 @@ The AI Investment Impact Radar MVP is considered complete when:
 - [ ] Final project documentation and demonstration materials are prepared.
 
 **Important Scope Limitation:** The initial release is an MVP, not a production-grade investment platform. Coverage is limited to selected Thai listed companies and industries. Data availability, API access, and AI output quality may limit the depth of analysis. The system provides research support and does not guarantee investment outcomes or provide automatic buy/sell decisions.
+
+---
+
+## 8. Sprint 2 Implementation Status
+
+Sprint 2 (News and Event Intelligence) is complete and verified:
+
+- **FEAT-05 News Article Collection and Storage:** Configurable RSS sources
+  (`server/services/news_sources.py`), ingestion pipeline
+  (`server/services/news_service.py`), duplicate prevention via unique URL,
+  graceful source-failure handling, `GET /api/news`, `GET /api/news/{id}`,
+  `POST /api/news/ingest`.
+- **FEAT-06 Event Extraction and Classification:** Rule-based baseline classifier
+  (`server/services/event_service.py`) with a replaceable `EventClassifier`
+  interface; 10 supported categories; classifications tagged with method and
+  confidence; linked to source articles; `GET /api/events`,
+  `POST /api/events/process`, `GET /api/events/categories`.
+- **FEAT-07 Event-to-Industry/Company Mapping:**
+  (`server/services/impact_mapping_service.py`) evidence-based mappings with
+  impact direction, relevance score, and explanation; uncertain connections
+  labelled Uncertain; `GET /api/events/{id}/industries`,
+  `GET /api/events/{id}/companies`, `GET /api/companies/{id}/events`.
+- **Schema:** Additive, non-destructive migration
+  (`server/scripts/migrate_sprint2.py`).
+- **Frontend:** Events page in `client/app.py` with articles, events, mappings,
+  ingestion/processing buttons, category filtering, and search.
+- **Testing:** 36 new Sprint 2 tests; all passing. Total suite: 64 passed, 0
+  failed. Development database is never modified (per-test rollback; external
+  sources mocked).
+
+Sprint 3+ features (financial analysis, market analysis, AI impact assessment,
+advanced dashboard analytics) remain planned and are not implemented.

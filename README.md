@@ -38,9 +38,11 @@ Hackathon/
 │   │   ├── database.py      # SQLAlchemy connection & session
 │   │   ├── api/
 │   │   │   ├── __init__.py
-│   │   │   ├── health.py    # GET /health
-│   │   │   ├── companies.py # GET/POST /api/companies
-│   │   │   └── industries.py# GET/POST /api/industries
+│   │   │   ├── health.py       # GET /health
+│   │   │   ├── companies.py    # GET/POST /api/companies
+│   │   │   ├── industries.py   # GET/POST /api/industries
+│   │   │   ├── news.py         # GET /api/news, POST /api/news/ingest
+│   │   │   └── events.py       # GET /api/events (+ processing & mapping)
 │   │   ├── models/          # SQLAlchemy models
 │   │   │   ├── __init__.py
 │   │   │   ├── news_article.py
@@ -173,6 +175,13 @@ The seed inserts Industries (Energy, Tourism, Petrochemicals) and Companies
 (PTT, PTTEP, AOT, IVL) only. It never inserts fabricated financial or market
 data.
 
+Apply the Sprint 2 additive schema migration (idempotent, non-destructive)
+to add Sprint 2 columns and constraints to an existing Sprint 1 database:
+
+```powershell
+python -m server.scripts.migrate_sprint2
+```
+
 ## Backend Startup
 
 Start the FastAPI backend:
@@ -183,6 +192,27 @@ uvicorn app.main:app --reload --app-dir server
 
 The backend listens on `http://localhost:8000`. The existing `/health` endpoint
 responds `{"status": "ok"}`, and tables are created automatically on startup.
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Backend health check. |
+| GET | `/api/companies` | List companies (optional `industry_id` filter). |
+| GET | `/api/companies/{id}` | Get a single company (404 if missing). |
+| POST | `/api/companies` | Create a company (rejects duplicate ticker). |
+| GET | `/api/industries` | List all industries. |
+| POST | `/api/industries` | Create an industry (rejects duplicate name). |
+| GET | `/api/news` | List news articles (paginated). |
+| GET | `/api/news/{id}` | Get a single news article (404 if missing). |
+| POST | `/api/news/ingest` | Ingest articles from configured sources. |
+| GET | `/api/events` | List events (optional `category` filter). |
+| GET | `/api/events/{id}` | Get a single event (404 if missing). |
+| POST | `/api/events/process` | Process articles into structured events. |
+| GET | `/api/events/categories` | List supported event categories. |
+| GET | `/api/events/{id}/industries` | Industries potentially affected by an event. |
+| GET | `/api/events/{id}/companies` | Companies potentially affected by an event. |
+| GET | `/api/companies/{id}/events` | Events potentially affecting a company. |
 
 ## Frontend Startup
 
@@ -215,7 +245,30 @@ Run all tests:
 python -m pytest server/tests client/tests -v
 ```
 
-## Current Sprint 1 Implementation Status
+## Test Execution
+
+Tests use a per-test rolled-back transaction, so the development database is
+never modified. External news sources are mocked in automated tests.
+
+Run the backend test suite:
+
+```powershell
+python -m pytest server/tests -v
+```
+
+Run the frontend test suite:
+
+```powershell
+python -m pytest client/tests -v
+```
+
+Run all tests:
+
+```powershell
+python -m pytest server/tests client/tests -v
+```
+
+## Current Implementation Status
 
 Sprint 1 (Foundation and Database) is complete:
 
@@ -229,7 +282,20 @@ Sprint 1 (Foundation and Database) is complete:
 - [x] FastAPI backend with `/health`, `/api/companies`, `/api/industries` endpoints
 - [x] Streamlit frontend shell (Dashboard, Events, Companies, Analysis)
 - [x] Frontend retrieves data through FastAPI, handles backend failures gracefully
-- [x] Automated tests: 20 backend + 8 frontend, all passing
+- [x] Automated tests passing
 
-Sprint 2+ features (news collection, event classification, financial analysis,
-market analysis, AI impact assessment) are intentionally not implemented.
+Sprint 2 (News and Event Intelligence) is complete:
+
+- [x] News ingestion from configurable RSS sources (`server/services/news_service.py`, `news_sources.py`)
+- [x] Duplicate article prevention via unique URL constraint
+- [x] Graceful source-failure handling (no crash, application keeps working)
+- [x] Rule-based event extraction and classification (`server/services/event_service.py`)
+- [x] Event categories: Economic, Political, Regulatory, Natural Disaster, Geopolitical, Industry Development, Corporate, Energy, Tourism, Technology
+- [x] Event-to-industry and event-to-company mapping (`server/services/impact_mapping_service.py`)
+- [x] Additive, non-destructive schema migration (`server/scripts/migrate_sprint2.py`)
+- [x] News and events API endpoints
+- [x] Streamlit Events page (articles, events, mappings, ingestion/processing buttons, filters, search)
+- [x] Automated tests: 28 Sprint 1 + 36 Sprint 2 = 64 passing
+
+Sprint 3+ features (financial analysis, market analysis, AI impact assessment,
+advanced dashboard analytics) are intentionally not implemented.

@@ -1,6 +1,6 @@
 """EventIndustry model: connects events with potentially affected industries."""
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional
 
@@ -18,6 +18,9 @@ class EventIndustry(Base):
         ForeignKey("industries.id", ondelete="CASCADE"), nullable=False, index=True
     )
     impact_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    relevance_score: Mapped[Optional[float]] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
     explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (

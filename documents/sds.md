@@ -664,22 +664,25 @@ This section distinguishes the initial development foundation from planned funct
 |---|---|
 | Git repository | Initialized / configured for GitHub upload. |
 | Python virtual environment | Created. |
-| Streamlit application | Basic application shell implemented (Dashboard, Events, Companies, Analysis). |
-| FastAPI application | Implemented: `/health`, `/api/companies`, `/api/industries` endpoints. |
+| Streamlit application | Basic shell + Events page implemented (Dashboard, Events, Companies, Analysis). |
+| FastAPI application | Implemented: `/health`, `/api/companies`, `/api/industries`, `/api/news`, `/api/events` (+ ingest, process, categories, mapping) endpoints. |
 | PostgreSQL | Running through Docker Compose (PostgreSQL 16). |
 | Database connectivity | Connection test successful. |
 | Database models | Implemented (9 SQLAlchemy models with relationships, constraints, indexes). |
 | Database tables | Implemented via `Base.metadata.create_all` (idempotent, non-destructive). |
-| API endpoints | Health, companies, industries implemented; remaining endpoints planned. |
+| API endpoints | Health, companies, industries, news, events implemented; remaining endpoints planned. |
 | Database initialization | `server/scripts/init_db.py` (reusable, non-destructive). |
+| Sprint 2 schema migration | `server/scripts/migrate_sprint2.py` (additive, non-destructive). |
 | Reference data seed | `server/scripts/seed_data.py` (idempotent, illustrative only). |
-| Automated tests | Implemented: 20 backend + 8 frontend tests, all passing. |
+| Automated tests | Implemented: 28 Sprint 1 + 36 Sprint 2 = 64 tests, all passing. |
 | Frontend-backend communication | Verified; Streamlit retrieves data via FastAPI only. |
-| News collection | Planned (Sprint 2). |
+| News collection | Implemented (Sprint 2): RSS ingestion, duplicate prevention, graceful source failure. |
+| Event processing | Implemented (Sprint 2): rule-based classification, article-to-event link. |
+| Event mapping | Implemented (Sprint 2): event-to-industry and event-to-company mapping. |
 | AI analysis | Planned (Sprint 3). |
 | Financial analysis | Planned (Sprint 3). |
 | Market activity analysis | Planned (Sprint 3). |
-| Investment dashboard | Basic shell implemented; full dashboard planned (Sprint 4). |
+| Investment dashboard | Basic shell + Events page implemented; full dashboard planned (Sprint 4). |
 
 ### Sprint 1 Implementation Notes
 
@@ -698,6 +701,31 @@ This section distinguishes the initial development foundation from planned funct
   gracefully with user-visible messages.
 - **ORM relationships:** `Industry.companies` ↔ `Company.industry`; relationship
   rows cascade on delete for event/industry/company associations.
+
+### Sprint 2 Implementation Notes
+
+- **News ingestion:** `server/services/news_service.py` collects articles from
+  configurable RSS sources (`server/services/news_sources.py`). Articles are
+  normalized and stored with a unique URL constraint to prevent duplicates.
+  Source failures are logged and do not abort ingestion of other sources. No
+  API keys are required; external sources are optional.
+- **Event extraction/classification:** `server/services/event_service.py`
+  converts articles into `Event` records using a modular `EventClassifier`
+  interface. The default `RuleBasedEventClassifier` uses keyword matching and
+  supports categories: Economic, Political, Regulatory, Natural Disaster,
+  Geopolitical, Industry Development, Corporate, Energy, Tourism, Technology.
+  Automated classifications are tagged with `classification_method` and
+  `confidence_score`, and linked to their source article via `source_article_id`.
+- **Event mapping:** `server/services/impact_mapping_service.py` maps events to
+  industries (`EventIndustry`) and companies (`EventCompany`) using keyword
+  evidence. Mappings store `impact_direction` (default Uncertain),
+  `relevance_score`, and an explanation; uncertain connections are labelled
+  Uncertain rather than presented as fact.
+- **Schema migration:** `server/scripts/migrate_sprint2.py` applies additive,
+  non-destructive column and constraint changes (idempotent).
+- **Frontend:** The Events page (`client/app.py`) lists articles and events with
+  category filtering, search, source links, affected industries/companies, impact
+  direction, and relevance scores. Buttons trigger ingestion and processing.
 
 
 ---

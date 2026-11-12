@@ -256,11 +256,19 @@ A testing phase may be considered complete when:
 
 ## 9. Test Execution Results
 
-Actual results recorded after test execution. Sprint 1 tests were executed with
-Pytest against the configured PostgreSQL database and the running FastAPI
-backend. Sprint 2+ features (news collection, event processing, financial
-analysis, market analysis, AI assessment, full dashboard UI) are not part of
-Sprint 1 and were not executed.
+Actual results recorded after test execution. Tests use a per-test rolled-back
+transaction against the configured PostgreSQL database, so the development
+database is never modified. External news sources are mocked in automated tests;
+no internet access or API keys are required.
+
+Command executed:
+```powershell
+python -m pytest server/tests client/tests -v
+```
+
+Result: **64 passed, 0 failed** (28 Sprint 1 + 36 Sprint 2).
+
+### Sprint 1 results (regression, all passing)
 
 | Test ID | Actual Result | Status | Remarks |
 |---|---|---|---|
@@ -269,39 +277,39 @@ Sprint 1 and were not executed.
 | TEST-DB-03 | Nonexistent record handled correctly. | Passed | `test_get_company_not_found` (API 404) |
 | TEST-API-01 | Health endpoint returns successful status. | Passed | `test_health_endpoint` |
 | TEST-API-02 | Invalid API request returns appropriate error. | Passed | `test_create_company_missing_required_field`, `test_create_industry_missing_name` |
-| TEST-EVT-01 | Not implemented in Sprint 1. | Not Run | News collection is a Sprint 2 feature. |
-| TEST-IMP-01 | Not implemented in Sprint 1. | Not Run | Event processing is a Sprint 2 feature. |
-| TEST-FIN-01 | Not implemented in Sprint 1. | Not Run | Financial analysis is a Sprint 3 feature. |
-| TEST-MKT-01 | Not implemented in Sprint 1. | Not Run | Market analysis is a Sprint 3 feature. |
-| TEST-AI-01 | Not implemented in Sprint 1. | Not Run | AI assessment is a Sprint 3 feature. |
-| TEST-UI-01 | Frontend helper functions verified; headless dashboard not executed. | Passed (partial) | `client/tests/test_app.py` helpers pass; dashboard UI not headless-tested. |
 
-Additional Sprint 1 tests executed (all passing):
+**Backend (`server/tests`):** 20 passed — database connection, tables created,
+create/read company, FK relationship, unique ticker constraint, unique
+company/fiscal-year constraint, model registration, supported event categories,
+health, list companies, industry filter, get company by ID, 404 not found,
+create company, duplicate ticker rejection, missing required field, list
+industries, create industry, duplicate name rejection, missing name.
 
-**Backend (`server/tests`):** 20 passed
-- Database: connection, tables created, create/read company, FK relationship,
-  unique ticker constraint, unique company/fiscal-year constraint, model
-  registration, supported event categories.
-- API: health, list companies, industry filter, get company by ID, 404 not
-  found, create company, duplicate ticker rejection, missing required field,
-  list industries, create industry, duplicate name rejection, missing name.
+**Frontend (`client/tests`):** 8 passed — backend status (true/false/bad
+status), company list parsing, empty-on-failure, industry filter path,
+industry list parsing, empty-on-failure.
 
-**Frontend (`client/tests`):** 8 passed
-- Backend status (true/false/bad status), company list parsing, empty-on-failure,
-  industry filter path, industry list parsing, empty-on-failure.
+### Sprint 2 results (all passing)
 
-Command executed:
-```powershell
-python -m pytest server/tests client/tests -v
-```
+| Test area | Tests | Status | Remarks |
+|---|---|---|---|
+| News ingestion | `test_news_service.py` (5), `test_news_api.py` (4) | Passed | Valid ingestion, duplicate prevention, missing/malformed article handling, source-failure handling, news list/details/ingest endpoints, 422 on over-limit pagination. |
+| Event processing | `test_event_service.py` (4), `test_events_api.py` (8) | Passed | Supported categories, rule-based classification (Energy/Uncertain), event creation, duplicate-event prevention, process endpoint, event list/details/categories, mapping endpoints, 404 for missing records, full article→event→mapping flow. |
+| Event mapping | `test_mapping_service.py` (5) | Passed | Valid impact directions, default Uncertain, industry mapping, company mapping, idempotency, no-match returns empty. |
+| Frontend helpers | `client/tests/test_app.py` (8) | Passed | Backend status, article/event parsing, empty-on-failure, category filter path, categories parsing, industries/companies mapping parsing, ingest/process failure handling. |
 
-Result: 28 passed, 0 failed.
+**Backend Sprint 2:** 26 passed.
+**Frontend Sprint 2:** 8 passed.
 
 **Status definitions:**
 - Passed: Actual result matches expected result.
 - Failed: Actual result does not match expected result.
 - Blocked: Test cannot be executed due to a dependency or environment issue.
 - Not Run: Test has not yet been executed.
+
+Sprint 2+ features not yet implemented (financial analysis, market analysis,
+AI assessment, full dashboard UI) are not executed and are marked as future work
+in this document.
 
 ---
 
