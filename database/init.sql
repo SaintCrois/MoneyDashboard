@@ -1,0 +1,2 @@
+-- Initial database setup
+-- Tables will be added in the next step.
