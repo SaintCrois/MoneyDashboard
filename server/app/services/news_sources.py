@@ -31,23 +31,28 @@ class NewsSource:
         return f"<NewsSource(name={self.name!r}, url={self.url!r})>"
 
 
-# Default configured sources. These are example public RSS feeds. External
+# Default configured sources. These are publicly accessible RSS feeds. External
 # sources may be unavailable at runtime; the ingestion service handles source
 # failures gracefully so the application keeps working with stored articles.
 DEFAULT_SOURCES: List[NewsSource] = [
     NewsSource(
-        name="Bangkok Post",
-        url="https://www.bangkokpost.com/rss/data.xml",
+        name="BBC Business",
+        url="https://feeds.bbci.co.uk/news/business/rss.xml",
         source_type=SOURCE_TYPE_RSS,
     ),
     NewsSource(
-        name="The Nation Thailand",
-        url="https://www.nationthailand.com/rss/",
+        name="Yahoo Finance",
+        url="https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US",
         source_type=SOURCE_TYPE_RSS,
     ),
     NewsSource(
-        name="Reuters Business",
-        url="https://www.reuters.com/business/finance/rss",
+        name="Channel News Asia",
+        url="https://www.channelnewsasia.com/api/v1/rss-outbound-feed",
+        source_type=SOURCE_TYPE_RSS,
+    ),
+    NewsSource(
+        name="Investing.com",
+        url="https://www.investing.com/rss/news.rss",
         source_type=SOURCE_TYPE_RSS,
     ),
 ]

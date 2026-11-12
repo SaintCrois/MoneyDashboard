@@ -1,9 +1,9 @@
 """News ingestion service.
 
-Collects news articles from configured sources (RSS feeds), normalizes them,
-and stores them in PostgreSQL. Duplicate articles are prevented using a unique
-constraint on the normalized article URL. Source failures are logged and do not
-abort the ingestion of other sources.
+Collects news articles from configured sources (RSS and Atom feeds), normalizes
+them, and stores them in PostgreSQL. Duplicate articles are prevented using a
+unique constraint on the normalized article URL. Source failures are logged and
+do not abort the ingestion of other sources.
 
 No external API keys are required. External sources are optional: if all sources
 are unavailable, the application continues to work with stored articles.
@@ -13,7 +13,7 @@ import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import List, Optional
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 from sqlalchemy.orm import Session
@@ -24,6 +24,12 @@ from app.services.news_sources import DEFAULT_SOURCES, NewsSource
 logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_SECONDS = 15
+REQUEST_HEADERS = {
+    "User-Agent": "AI-Investment-Radar/1.0 (news ingestion; no auth required)",
+    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+}
+
+ATOM_NS = "{http://www.w3.org/2005/Atom}"
 
 
 def _normalize_url(url: Optional[str]) -> Optional[str]:
@@ -42,7 +48,7 @@ def _normalize_url(url: Optional[str]) -> Optional[str]:
 
 
 def _parse_rss_datetime(value: Optional[str]) -> Optional[datetime]:
-    """Parse common RSS date formats into a timezone-aware datetime."""
+    """Parse common RSS/Atom date formats into a timezone-aware datetime."""
     if not value:
         return None
     value = value.strip()
@@ -52,7 +58,9 @@ def _parse_rss_datetime(value: Optional[str]) -> Optional[datetime]:
         "%a, %d %b %Y %H:%M:%S %z",
         "%a, %d %b %Y %H:%M:%S %Z",
         "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
     ]
     for fmt in formats:
         try:
@@ -65,48 +73,104 @@ def _parse_rss_datetime(value: Optional[str]) -> Optional[datetime]:
     return None
 
 
-def _fetch_rss(url: str, timeout: int = REQUEST_TIMEOUT_SECONDS) -> str:
-    """Fetch the raw RSS XML from a source URL."""
-    with urlopen(url, timeout=timeout) as response:
+def _fetch_feed(url: str, timeout: int = REQUEST_TIMEOUT_SECONDS) -> str:
+    """Fetch the raw feed XML from a source URL with appropriate headers."""
+    req = Request(url, headers=REQUEST_HEADERS)
+    with urlopen(req, timeout=timeout) as response:
         return response.read().decode("utf-8", errors="replace")
 
 
+def _atom_link(element) -> Optional[str]:
+    """Extract an href from an Atom link element."""
+    if element is None:
+        return None
+    href = element.get("href")
+    if href:
+        return href
+    # Fall back to element text.
+    text = (element.text or "").strip()
+    return text or None
+
+
 def _parse_rss_feed(xml_text: str, source_name: str) -> List[dict]:
-    """Parse RSS XML into a list of normalized article dicts."""
+    """Parse RSS 2.0 or Atom XML into a list of normalized article dicts.
+
+    Handles invalid XML, empty feeds, missing publication dates, and
+    malformed entries without raising.
+    """
     articles: List[dict] = []
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError as exc:
-        logger.warning("Failed to parse RSS feed %s: %s", source_name, exc)
+        logger.warning("Failed to parse feed %s: %s", source_name, exc)
         return articles
 
+    tag = root.tag.lower()
     items = root.findall(".//item")
-    for item in items:
-        def _text(tag: str) -> Optional[str]:
-            element = item.find(tag)
-            if element is None or element.text is None:
-                return None
-            return element.text.strip()
 
-        title = _text("title")
-        url = _normalize_url(_text("link"))
-        summary = _text("description")
-        published_at = _parse_rss_datetime(_text("pubDate"))
+    if items:
+        # RSS 2.0
+        for item in items:
+            def _text(tag_name: str) -> Optional[str]:
+                element = item.find(tag_name)
+                if element is None or element.text is None:
+                    return None
+                return element.text.strip()
 
-        if not title or not url:
-            continue
+            title = _text("title")
+            url = _normalize_url(_text("link"))
+            summary = _text("description")
+            published_at = _parse_rss_datetime(_text("pubDate"))
 
-        articles.append(
-            {
-                "title": title[:500],
-                "source": source_name,
-                "url": url,
-                "published_at": published_at,
-                "summary": summary,
-                "content": None,
-                "fetched_at": datetime.now(timezone.utc),
-            }
-        )
+            if not title or not url:
+                continue
+
+            articles.append(
+                {
+                    "title": title[:500],
+                    "source": source_name,
+                    "url": url,
+                    "published_at": published_at,
+                    "summary": summary,
+                    "content": None,
+                    "fetched_at": datetime.now(timezone.utc),
+                }
+            )
+    elif tag.endswith("feed") or root.findall(".//" + ATOM_NS + "entry"):
+        # Atom
+        entries = root.findall(".//" + ATOM_NS + "entry")
+        for entry in entries:
+            def _atom_text(tag_name: str) -> Optional[str]:
+                element = entry.find(tag_name)
+                if element is None or element.text is None:
+                    return None
+                return element.text.strip()
+
+            title = _atom_text(ATOM_NS + "title")
+            link_element = entry.find(ATOM_NS + "link")
+            url = _normalize_url(_atom_link(link_element))
+            summary = _atom_text(ATOM_NS + "summary")
+            published_at = _parse_rss_datetime(_atom_text(ATOM_NS + "published"))
+            if not published_at:
+                published_at = _parse_rss_datetime(_atom_text(ATOM_NS + "updated"))
+
+            if not title or not url:
+                continue
+
+            articles.append(
+                {
+                    "title": title[:500],
+                    "source": source_name,
+                    "url": url,
+                    "published_at": published_at,
+                    "summary": summary,
+                    "content": None,
+                    "fetched_at": datetime.now(timezone.utc),
+                }
+            )
+    else:
+        logger.warning("Feed %s is not a recognized RSS or Atom feed", source_name)
+
     return articles
 
 
@@ -138,18 +202,21 @@ def ingest_articles(
             "type": source.source_type,
             "ingested": 0,
             "skipped": 0,
+            "parsed": 0,
             "error": None,
         }
 
         try:
             if source.source_type == "rss":
-                xml_text = _fetch_rss(source.url)
+                xml_text = _fetch_feed(source.url)
                 parsed = _parse_rss_feed(xml_text, source.name)
             else:
                 logger.warning(
                     "Unsupported source type %s for %s", source.source_type, source.name
                 )
                 parsed = []
+
+            source_result["parsed"] = len(parsed)
 
             for article in parsed:
                 existing = (

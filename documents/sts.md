@@ -266,7 +266,7 @@ Command executed:
 python -m pytest server/tests client/tests -v
 ```
 
-Result: **64 passed, 0 failed** (28 Sprint 1 + 36 Sprint 2).
+Result: **71 passed, 0 failed** (28 Sprint 1 + 43 Sprint 2).
 
 ### Sprint 1 results (regression, all passing)
 
@@ -293,12 +293,12 @@ industry list parsing, empty-on-failure.
 
 | Test area | Tests | Status | Remarks |
 |---|---|---|---|
-| News ingestion | `test_news_service.py` (5), `test_news_api.py` (4) | Passed | Valid ingestion, duplicate prevention, missing/malformed article handling, source-failure handling, news list/details/ingest endpoints, 422 on over-limit pagination. |
+| News ingestion | `test_news_service.py` (12), `test_news_api.py` (4) | Passed | RSS/Atom parsing, valid feed, empty feed, malformed XML, missing fields, URL normalization, duplicate prevention, HTTP error handling, source failure, news list/details/ingest endpoints, 422 on over-limit pagination. |
 | Event processing | `test_event_service.py` (4), `test_events_api.py` (8) | Passed | Supported categories, rule-based classification (Energy/Uncertain), event creation, duplicate-event prevention, process endpoint, event list/details/categories, mapping endpoints, 404 for missing records, full article→event→mapping flow. |
 | Event mapping | `test_mapping_service.py` (5) | Passed | Valid impact directions, default Uncertain, industry mapping, company mapping, idempotency, no-match returns empty. |
 | Frontend helpers | `client/tests/test_app.py` (8) | Passed | Backend status, article/event parsing, empty-on-failure, category filter path, categories parsing, industries/companies mapping parsing, ingest/process failure handling. |
 
-**Backend Sprint 2:** 26 passed.
+**Backend Sprint 2:** 33 passed.
 **Frontend Sprint 2:** 8 passed.
 
 **Status definitions:**
