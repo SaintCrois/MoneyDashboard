@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
-import { Bell, Briefcase, Monitor, Newspaper, Smartphone } from "lucide-react";
-import { LEVELS, type Level } from "./api";
+import { Bell, Briefcase, Monitor, Newspaper, Settings, Smartphone } from "lucide-react";
+import { type Level } from "./api";
 import { useRoute, useStored } from "./hooks";
 import { HoldingsPage } from "./pages/Holdings";
 import { StockPage } from "./pages/Stock";
 import { NewsPage } from "./pages/News";
 import { AlertsPage } from "./pages/Alerts";
+import { SettingsPage } from "./pages/Settings";
 
 const DEFAULT_HOLDINGS = ["PTT", "KBANK", "IVL", "CPALL"];
 
@@ -13,28 +14,10 @@ const NAV = [
   { key: "", label: "หุ้นที่ถือ", icon: Briefcase },
   { key: "news", label: "ข่าววันนี้", icon: Newspaper },
   { key: "alerts", label: "แจ้งเตือน", icon: Bell },
+  { key: "settings", label: "ตั้งค่า", icon: Settings },
 ];
 
-function LevelControl({ level, onChange }: { level: Level; onChange: (l: Level) => void }) {
-  const current = LEVELS.find((l) => l.key === level)!;
-  return (
-    <div className="level">
-      <span className="level-label" id="level-label">
-        ความเข้มการจับคู่ข่าว
-      </span>
-      <div className="segmented" role="radiogroup" aria-labelledby="level-label">
-        {LEVELS.map((l) => (
-          <label key={l.key} className={l.key === level ? "is-on" : undefined}>
-            <input type="radio" name="level" checked={l.key === level} onChange={() => onChange(l.key)} />
-            {l.name}
-          </label>
-        ))}
-      </div>
-      <p className="level-rule">{current.rule}</p>
-    </div>
-  );
-}
-
+/** Desktop or phone-width preview of the app, for the demo. */
 function DeviceSwitch({ device, onChange }: { device: string; onChange: (d: string) => void }) {
   return (
     <div className="device-switch" role="group" aria-label="ขนาดหน้าจอที่แสดง">
@@ -51,11 +34,7 @@ function DeviceSwitch({ device, onChange }: { device: string; onChange: (d: stri
 }
 
 function BrandMark() {
-  return (
-    <span className="brand-mark" aria-hidden>
-      W
-    </span>
-  );
+  return <img className="brand-mark" src="/whymove-mark.svg" alt="" />;
 }
 
 export function App() {
@@ -79,6 +58,8 @@ export function App() {
     page = <NewsPage level={level} holdings={holdings} />;
   } else if (section === "alerts") {
     page = <AlertsPage holdings={holdings} />;
+  } else if (section === "settings") {
+    page = <SettingsPage level={level} onLevel={setLevel} />;
   } else {
     page = <HoldingsPage level={level} holdings={holdings} onHoldings={setHoldings} />;
   }
@@ -97,6 +78,9 @@ export function App() {
                 {label}
               </a>
             ))}
+            <div className="rail-foot">
+              <DeviceSwitch device={device} onChange={setDevice} />
+            </div>
           </nav>
 
           <header className="topbar">
@@ -108,10 +92,6 @@ export function App() {
           </header>
 
           <main className="main" ref={mainRef}>
-            <div className="panel-bar">
-              <LevelControl level={level} onChange={setLevel} />
-              <DeviceSwitch device={device} onChange={setDevice} />
-            </div>
             <div className="page">{page}</div>
             <p className="disclaimer">
               ข้อมูลนี้เป็นการวิเคราะห์เพื่อประกอบความเข้าใจ ไม่ใช่คำแนะนำการลงทุน ระบบจับคู่ข่าวด้วยคำสำคัญ ยังไม่ได้ใช้ AI

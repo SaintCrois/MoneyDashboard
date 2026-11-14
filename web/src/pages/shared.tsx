@@ -1,5 +1,6 @@
 import {
   ArrowUpDown,
+  ArrowUpRight,
   Building2,
   CircleHelp,
   FlaskConical,
@@ -51,6 +52,21 @@ export function CompanyTile({ company, large = false }: { company: Company; larg
     <span className={`ind-tile${size}`} data-industry={key} title={title}>
       <Icon aria-hidden size={large ? 26 : 20} strokeWidth={1.75} />
     </span>
+  );
+}
+
+/** A news headline that opens the source. The arrow stays on the same line as the last word. */
+export function Headline({ title, url }: { title: string; url: string | null }) {
+  if (!url) return <>{title}</>;
+  const cut = title.lastIndexOf(" ");
+  return (
+    <a className="headline" href={url} target="_blank" rel="noreferrer">
+      {title.slice(0, cut + 1)}
+      <span className="nowrap">
+        {title.slice(cut + 1)}
+        <ArrowUpRight aria-hidden size={15} />
+      </span>
+    </a>
   );
 }
 

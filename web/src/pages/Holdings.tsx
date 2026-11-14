@@ -37,7 +37,10 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
           <h1>หุ้นที่ฉันถือ</h1>
           {state.status === "ready" && (
             <p className="lede">
-              คัดจากข่าวล่าสุด {state.data.pool_size} ชิ้น จับคู่ที่ระดับ{levelName}
+              จำนวนข่าวที่อาจเกี่ยวข้องกับแต่ละหุ้น จากข่าวล่าสุด {state.data.pool_size} ชิ้น จับคู่ระดับ{levelName}{" "}
+              <a className="inline-link" href="#/settings">
+                เปลี่ยนในตั้งค่า
+              </a>
             </p>
           )}
         </div>
@@ -91,8 +94,9 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
                           )}
                         </span>
                         <span className="holding-count">
-                          <strong>{count}</strong>
-                          <span>ข่าวที่อาจเกี่ยวข้อง</span>
+                          <span>
+                            <strong>{count}</strong> ข่าว
+                          </span>
                           {direct_count > 0 && <em>เอ่ยชื่อบริษัท {direct_count}</em>}
                         </span>
                         <ChevronRight aria-hidden size={20} className="holding-go" />

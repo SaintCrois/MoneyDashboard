@@ -1,27 +1,50 @@
 /*
  * WhyMove. Shell and components follow fastwork.com (the reference Pentor chose):
  * grey #f5f5f5 frame, narrow side rail, white rounded panel, soft-shadow cards,
- * black pill buttons, pastel icon tiles, Google Sans. One accent: deck orange #FF5728.
+ * black pill buttons, Google Sans. One accent: deck orange #FF5728.
+ * Every colour, shadow and font below comes from a token in :root.
  */
 :root {
   color-scheme: light;
 
+  /* Neutrals */
   --body: #f5f5f5;
   --surface: #ffffff;
   --muted: #f1f1f1;
+  --hover: #fafafa;
   --gray: #e5e5e5;
   --border: #ebebeb;
+  --border-strong: #d4d4d4;
   --ink: #171717;
   --ink-2: #404040;
   --heading: #2b313b;
   --secondary: #6b6b6b;
   --faint: #a3a3a3;
+  --icon-neutral: #525252;
   --primary: #262626;
   --primary-hover: #404040;
+  --on-primary: #ffffff;
 
+  /* The one accent */
   --accent: #ff5728;
   --accent-ink: #b83a12;
   --accent-tint: #ffede6;
+
+  /* Industry tiles, used only when a company has no logo file */
+  --tile-energy: #fbe6b4;
+  --tile-energy-ink: #7a4e00;
+  --tile-financials: #d3e4fb;
+  --tile-financials-ink: #00458c;
+  --tile-petro: #e4ddf8;
+  --tile-petro-ink: #4b3a9c;
+  --tile-consumer: #d3eedd;
+  --tile-consumer-ink: #1e6b3f;
+  --tile-tech: #d6eef5;
+  --tile-tech-ink: #0b5a73;
+  --tile-health: #fad6d2;
+  --tile-health-ink: #9b2c22;
+  --tile-tourism: #d9e7f0;
+  --tile-tourism-ink: #2c5470;
 
   --font: "Google Sans", "Sukhumvit Set", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
@@ -30,8 +53,13 @@
   --radius-container: 16px;
   --radius-panel: 20px;
   --radius-card: 24px;
+  --radius-pill: 999px;
 
   --shadow-card: 0 2px 4px rgb(0 0 0 / 0.05), 0 4px 8px rgb(0 0 0 / 0.1);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.08), 0 2px 6px rgb(0 0 0 / 0.08);
+  --shadow-knob: 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-frame: 0 24px 48px -16px rgb(0 0 0 / 0.25);
+
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-micro: 120ms;
   --dur-short: 220ms;
@@ -51,9 +79,14 @@ html {
   background: var(--body);
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
-  scrollbar-color: #d4d4d4 transparent;
+  scrollbar-color: var(--border-strong) transparent;
   accent-color: var(--primary);
   caret-color: var(--accent-ink);
+}
+
+html,
+body {
+  overflow-x: clip;
 }
 
 body {
@@ -103,12 +136,27 @@ h1 {
   line-height: 1.35;
   font-weight: 600;
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 .card {
   background: var(--surface);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+}
+
+.inline-link {
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 4px;
+  white-space: nowrap;
+  transition: text-decoration-color var(--dur-micro) var(--ease-out);
+}
+
+.inline-link:hover {
+  text-decoration-color: var(--ink);
 }
 
 /* ---------- Stage and device preview ---------- */
@@ -125,6 +173,7 @@ h1 {
   background: var(--body);
 }
 
+/* Phone preview is a plain phone-width viewport, not a drawn device. */
 @media (min-width: 701px) {
   .stage[data-device="phone"] {
     display: grid;
@@ -135,10 +184,9 @@ h1 {
   .stage[data-device="phone"] .app {
     width: 390px;
     height: min(844px, calc(100dvh - 32px));
-    border: 8px solid var(--ink);
-    border-radius: 44px;
+    border-radius: var(--radius-card);
     overflow: hidden;
-    box-shadow: 0 24px 48px -16px rgb(0 0 0 / 0.3);
+    box-shadow: var(--shadow-frame);
   }
 }
 
@@ -153,16 +201,9 @@ h1 {
 /* ---------- Brand ---------- */
 
 .brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 32px;
   height: 32px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 1.125rem;
-  font-weight: 700;
-  line-height: 1;
 }
 
 .brand {
@@ -170,7 +211,7 @@ h1 {
   align-items: center;
   gap: 10px;
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
 }
 
@@ -196,8 +237,6 @@ h1 {
 .rail-logo .brand-mark {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
-  font-size: 1.375rem;
 }
 
 .rail-item {
@@ -229,6 +268,10 @@ h1 {
   }
 }
 
+.rail-foot {
+  margin-top: auto;
+}
+
 /* ---------- Top bar and tab bar (narrow only) ---------- */
 
 .topbar {
@@ -241,8 +284,8 @@ h1 {
 
 .tabbar {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  grid-template-columns: repeat(4, 1fr);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
@@ -255,12 +298,13 @@ h1 {
   color: var(--secondary);
   font-size: 0.75rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .tabbar a svg {
   box-sizing: content-box;
-  padding: 3px 16px;
-  border-radius: 999px;
+  padding: 3px 14px;
+  border-radius: var(--radius-pill);
   transition: background-color var(--dur-micro) var(--ease-out);
 }
 
@@ -273,89 +317,13 @@ h1 {
   background: var(--gray);
 }
 
-/* ---------- Panel bar: match level and device preview ---------- */
-
-.main {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 16px 24px;
-}
-
-.panel-bar {
-  padding: 4px 0 20px;
-}
-
-.panel-bar .device-switch {
-  display: none;
-}
-
-.level {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px 12px;
-}
-
-.level-rule {
-  grid-column: 1 / -1;
-}
-
-.level-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--ink-2);
-}
-
-.segmented {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  padding: 3px;
-  border-radius: 999px;
-  background: var(--gray);
-}
-
-.segmented label {
-  position: relative;
-  padding: 6px 16px;
-  border-radius: 999px;
-  text-align: center;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--secondary);
-  cursor: pointer;
-  transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
-}
-
-.segmented label.is-on {
-  background: var(--surface);
-  color: var(--ink);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 2px 6px rgb(0 0 0 / 0.08);
-}
-
-.segmented input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.segmented label:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.level-rule {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--secondary);
-}
+/* ---------- Device preview switch ---------- */
 
 .device-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
   padding: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--gray);
 }
 
@@ -366,11 +334,12 @@ h1 {
   gap: 6px;
   padding: 5px 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--secondary);
+  white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 
@@ -378,18 +347,39 @@ h1 {
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 2px 6px rgb(0 0 0 / 0.08);
+  box-shadow: var(--shadow-raised);
+}
+
+/* In the rail the two choices stack, icon over label, like the nav items. */
+.rail .device-switch {
+  grid-template-columns: 1fr;
+  gap: 2px;
+  width: 68px;
+  border-radius: var(--radius-element);
+}
+
+.rail .device-switch button {
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-radius: 10px;
+  font-size: 0.6875rem;
 }
 
 /* A real phone has nothing to preview. */
 @media (max-width: 700px) {
-  .device-switch,
-  .panel-bar .device-switch {
+  .device-switch {
     display: none;
   }
 }
 
 /* ---------- Page scaffolding ---------- */
+
+.main {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 16px 24px;
+}
 
 .page {
   max-width: 68rem;
@@ -460,9 +450,9 @@ h1 {
   min-height: 44px;
   padding: 0 20px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-weight: 500;
   white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
@@ -486,17 +476,17 @@ h1 {
 
 .btn[aria-busy="true"]:disabled {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   cursor: progress;
 }
 
 .icon-btn {
   display: grid;
   place-items: center;
-  align-self: center;
+  align-self: start;
   width: 40px;
   height: 40px;
-  margin-right: 8px;
+  margin: 18px 8px 0 0;
   border: 0;
   border-radius: var(--radius-element);
   background: transparent;
@@ -516,10 +506,11 @@ h1 {
   min-height: 40px;
   padding: 0 16px 0 12px;
   border: 1px solid var(--gray);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   font-size: 0.875rem;
   color: var(--secondary);
+  white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
 }
 
@@ -530,7 +521,7 @@ h1 {
 
 .chip-btn:hover {
   background: var(--muted);
-  border-color: #d4d4d4;
+  border-color: var(--border-strong);
 }
 
 .spin {
@@ -543,7 +534,7 @@ h1 {
   }
 }
 
-/* ---------- Industry tiles ---------- */
+/* ---------- Company tiles ---------- */
 
 .ind-tile {
   display: grid;
@@ -553,7 +544,7 @@ h1 {
   height: 44px;
   border-radius: var(--radius-element);
   background: var(--muted);
-  color: #525252;
+  color: var(--icon-neutral);
 }
 
 .ind-tile.is-lg {
@@ -580,32 +571,32 @@ h1 {
 }
 
 .ind-tile[data-industry="energy"] {
-  background: #fbe6b4;
-  color: #7a4e00;
+  background: var(--tile-energy);
+  color: var(--tile-energy-ink);
 }
 .ind-tile[data-industry="financials"] {
-  background: #d3e4fb;
-  color: #00458c;
+  background: var(--tile-financials);
+  color: var(--tile-financials-ink);
 }
 .ind-tile[data-industry="petrochemicals"] {
-  background: #e4ddf8;
-  color: #4b3a9c;
+  background: var(--tile-petro);
+  color: var(--tile-petro-ink);
 }
 .ind-tile[data-industry="consumer"] {
-  background: #d3eedd;
-  color: #1e6b3f;
+  background: var(--tile-consumer);
+  color: var(--tile-consumer-ink);
 }
 .ind-tile[data-industry="technology"] {
-  background: #d6eef5;
-  color: #0b5a73;
+  background: var(--tile-tech);
+  color: var(--tile-tech-ink);
 }
 .ind-tile[data-industry="healthcare"] {
-  background: #fad6d2;
-  color: #9b2c22;
+  background: var(--tile-health);
+  color: var(--tile-health-ink);
 }
 .ind-tile[data-industry="tourism"] {
-  background: #d9e7f0;
-  color: #2c5470;
+  background: var(--tile-tourism);
+  color: var(--tile-tourism-ink);
 }
 
 /* ---------- Holdings ---------- */
@@ -617,10 +608,15 @@ h1 {
 .holdings li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  transition: background-color var(--dur-micro) var(--ease-out);
 }
 
 .holdings li + li {
   border-top: 1px solid var(--border);
+}
+
+.holdings li:hover {
+  background: var(--hover);
 }
 
 .holding {
@@ -632,21 +628,10 @@ h1 {
   align-items: center;
   gap: 12px 14px;
   padding: 16px 4px 16px 16px;
-  transition: background-color var(--dur-micro) var(--ease-out);
-}
-
-.holdings li:hover {
-  background: #fafafa;
 }
 
 .holding .ind-tile {
   grid-area: tile;
-}
-
-/* On a narrow row the remove button sits beside the ticker line, not mid-row. */
-.holdings .icon-btn {
-  align-self: start;
-  margin-top: 18px;
 }
 
 .holding-id {
@@ -696,14 +681,14 @@ h1 {
   display: grid;
   justify-items: end;
   text-align: right;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
   color: var(--secondary);
+  white-space: nowrap;
 }
 
 .holding-count strong {
-  font-size: 1.5rem;
-  line-height: 1.2;
+  font-size: 1.0625rem;
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -711,7 +696,7 @@ h1 {
 
 .holding-count em {
   font-style: normal;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--accent-ink);
 }
 
@@ -790,7 +775,7 @@ h1 {
 
 @keyframes pulse {
   to {
-    background: #f8f8f8;
+    background: var(--hover);
   }
 }
 
@@ -799,42 +784,17 @@ h1 {
 .stock-head {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
-  grid-template-areas:
-    "tile title"
-    "stat stat";
   align-items: center;
   gap: 16px;
   margin-bottom: 24px;
 }
 
-.stock-head .ind-tile {
-  grid-area: tile;
-}
-
 .stock-title {
-  grid-area: title;
   min-width: 0;
 }
 
 .stock-title .lede {
   margin-top: 0;
-}
-
-.stat {
-  grid-area: stat;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  color: var(--secondary);
-  font-size: 0.875rem;
-}
-
-.stat strong {
-  font-size: 1.75rem;
-  line-height: 1.2;
-  font-weight: 600;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
 }
 
 .angles {
@@ -868,11 +828,12 @@ h1 {
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--muted);
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--ink-2);
+  white-space: nowrap;
 }
 
 .angle-body {
@@ -885,6 +846,12 @@ h1 {
   display: grid;
   align-content: start;
   gap: 20px;
+}
+
+/* The system's reading sits behind a rule, not in a box inside the card. */
+.angle-read {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
 }
 
 .angle h3 {
@@ -915,7 +882,7 @@ h1 {
   font-weight: 500;
   color: var(--ink);
   text-decoration: underline;
-  text-decoration-color: #d4d4d4;
+  text-decoration-color: var(--border-strong);
   text-underline-offset: 4px;
   transition: text-decoration-color var(--dur-micro) var(--ease-out);
 }
@@ -945,16 +912,10 @@ h1 {
 
 .terms li {
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--muted);
   font-size: 0.8125rem;
   color: var(--ink-2);
-}
-
-.angle-read {
-  padding: 16px;
-  border-radius: var(--radius-container);
-  background: var(--body);
 }
 
 .checks {
@@ -967,21 +928,19 @@ h1 {
 .checks li {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
 .checks svg {
   flex: none;
-  margin-top: 4px;
-  color: var(--accent-ink);
+  margin-top: 5px;
+  color: var(--faint);
 }
 
 .angle p.read-note {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  padding-top: 14px;
-  border-top: 1px solid var(--gray);
   font-size: 0.8125rem;
   color: var(--secondary);
 }
@@ -1012,6 +971,7 @@ h1 {
 }
 
 .news-item {
+  position: relative;
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: 14px;
@@ -1022,8 +982,15 @@ h1 {
   transition: background-color var(--dur-short) var(--ease-out);
 }
 
-.news-item + .news-item {
-  box-shadow: 0 -1px 0 var(--border);
+/* Straight divider inset to the text, not following the item's rounded corners. */
+.news-item + .news-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: var(--border);
 }
 
 .news-n {
@@ -1037,31 +1004,51 @@ h1 {
   font-weight: 600;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
-  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
 }
 
-.news-item.is-cited,
+/* Only the item just jumped to is marked, and only for a moment. */
 .news-item.is-flash {
   background: var(--accent-tint);
-  box-shadow: none;
 }
 
-.news-item.is-cited + .news-item,
-.news-item.is-flash + .news-item {
-  box-shadow: none;
+.news-item.is-flash::before,
+.news-item.is-flash + .news-item::before {
+  display: none;
 }
 
-.news-item.is-cited .news-n,
-.news-item.is-flash .news-n {
-  background: var(--accent-ink);
-  color: #fff;
-}
-
-.news-item h3 {
+.news-item h3,
+.feed h2 {
   max-width: 80ch;
   font-size: 1rem;
   line-height: 1.5;
   font-weight: 500;
+}
+
+.headline {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--dur-micro) var(--ease-out);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.headline svg {
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: -2px;
+  color: var(--faint);
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.headline:hover {
+  text-decoration-color: var(--border-strong);
+}
+
+.headline:hover svg {
+  color: var(--ink);
 }
 
 .news-meta {
@@ -1085,7 +1072,7 @@ h1 {
   align-items: center;
   gap: 4px;
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--muted);
   font-weight: 500;
   color: var(--ink-2);
@@ -1095,24 +1082,6 @@ h1 {
 .tag-direct {
   background: var(--accent-tint);
   color: var(--accent-ink);
-}
-
-.link {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: 8px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--accent-ink);
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-underline-offset: 4px;
-  transition: text-decoration-color var(--dur-micro) var(--ease-out);
-}
-
-.link:hover {
-  text-decoration-color: currentColor;
 }
 
 /* ---------- News feed ---------- */
@@ -1133,24 +1102,25 @@ h1 {
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid var(--gray);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--secondary);
+  white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out),
     border-color var(--dur-micro) var(--ease-out);
 }
 
 .filter-chips button:hover {
-  border-color: #d4d4d4;
+  border-color: var(--border-strong);
   color: var(--ink);
 }
 
 .filter-chips button[aria-pressed="true"] {
   background: var(--primary);
   border-color: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 .checks-row {
@@ -1186,18 +1156,6 @@ h1 {
   border-top: 1px solid var(--border);
 }
 
-.feed h2 {
-  max-width: 80ch;
-  font-size: 1rem;
-  line-height: 1.5;
-  font-weight: 500;
-}
-
-.feed .news-meta .link {
-  margin: 0 0 0 12px;
-  font-size: 0.8125rem;
-}
-
 .tickers {
   display: flex;
   flex-wrap: wrap;
@@ -1215,14 +1173,14 @@ h1 {
 .tickers a {
   padding: 2px 10px;
   border: 1px solid var(--gray);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
   color: var(--ink);
   transition: border-color var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
 }
 
 .tickers a:hover {
-  border-color: #d4d4d4;
+  border-color: var(--border-strong);
   background: var(--muted);
 }
 
@@ -1306,7 +1264,7 @@ h1 {
 .switch span {
   position: absolute;
   inset: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--gray);
 }
 
@@ -1318,49 +1276,98 @@ h1 {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  background: var(--surface);
+  box-shadow: var(--shadow-knob);
+}
+
+/* ---------- Settings ---------- */
+
+.setting {
+  padding: 20px;
+}
+
+.options {
+  margin-top: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 10px;
+  margin-inline: -10px;
+  border-radius: var(--radius-element);
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.option {
+  position: relative;
+}
+
+.option + .option::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: var(--border);
+}
+
+.option:hover {
+  background: var(--hover);
+}
+
+.option input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+}
+
+.option-text {
+  display: grid;
+  gap: 2px;
+}
+
+.option-text strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.option-text span {
+  font-size: 0.875rem;
+  color: var(--secondary);
+}
+
+.option:has(input:checked) .option-text strong {
+  color: var(--ink);
 }
 
 /* ---------- Wider containers ---------- */
 
 @container app (min-width: 600px) {
   .main {
-    padding: 0 24px 32px;
+    padding: 8px 24px 32px;
   }
-  .panel-bar .level {
-    grid-template-columns: auto auto;
-    justify-content: start;
+  .holding {
+    grid-template-columns: 44px 11rem minmax(0, 1fr) 7.5rem 20px;
+    grid-template-areas: "tile id news count go";
+    gap: 20px;
+    padding: 18px 4px 18px 20px;
   }
   .holdings .icon-btn {
     align-self: center;
     margin-top: 0;
   }
-  .angle-read {
-    padding: 20px;
-  }
-  .holding {
-    grid-template-columns: 44px 11rem minmax(0, 1fr) 8rem 20px;
-    grid-template-areas: "tile id news count go";
-    gap: 20px;
-    padding: 18px 4px 18px 20px;
-  }
   .holding-go {
     display: block;
     grid-area: go;
   }
-  .stock-head {
-    grid-template-columns: 56px minmax(0, 1fr) auto;
-    grid-template-areas: "tile title stat";
-  }
-  .stat {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0;
-    text-align: right;
-  }
   .angle,
-  .sources {
+  .sources,
+  .setting {
     padding: 24px;
   }
   .feed {
@@ -1388,33 +1395,9 @@ h1 {
     display: none;
   }
   .main {
-    padding: 0 40px 32px;
+    padding: 40px 40px 32px;
     border-radius: var(--radius-panel);
     background: var(--surface);
-  }
-  .panel-bar {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin: 0 -40px 32px;
-    padding: 12px 40px;
-    background: rgb(255 255 255 / 0.92);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--border);
-  }
-  .panel-bar .level {
-    grid-template-columns: auto auto minmax(0, 1fr);
-  }
-  .level-rule {
-    grid-column: auto;
-  }
-  .panel-bar .device-switch {
-    display: grid;
-    flex: none;
   }
   .page-head {
     margin-bottom: 24px;
@@ -1427,7 +1410,12 @@ h1 {
 @container app (min-width: 1040px) {
   .angle-body {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 24px;
+    gap: 32px;
+  }
+  .angle-read {
+    padding: 0 0 0 32px;
+    border-top: 0;
+    border-left: 1px solid var(--border);
   }
 }
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- WhyMove mark, redrawn from ChatGPT concept 1: a news page with a movement chart. -->
+  <rect width="64" height="64" rx="14" fill="#FF5728"/>
+  <rect x="10" y="11" width="37" height="40" rx="4" fill="#FFFFFF"/>
+  <path d="M16.5 19.5h24M16.5 26h24M16.5 32.5h9.5M16.5 39h9.5" stroke="#171717" stroke-width="3.2" stroke-linecap="round"/>
+  <rect x="30" y="30" width="23" height="19" rx="3" fill="#171717" stroke="#FFFFFF" stroke-width="2.5"/>
+  <path d="M34.5 44l4.6-4.8 3.6 3.4 6-6.2M44.8 35.8h4.1v4.1" fill="none" stroke="#FF5728" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

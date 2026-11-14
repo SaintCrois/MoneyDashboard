@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { ArrowUpRight } from "lucide-react";
 import { api, formatDate, safeUrl, type Level } from "../api";
 import { useLoad } from "../hooks";
-import { ErrorState, Skeleton } from "./shared";
+import { ErrorState, Headline, Skeleton } from "./shared";
 
 export function NewsPage({ level, holdings }: { level: Level; holdings: string[] }) {
   const [state, reload] = useLoad(() => Promise.all([api.feed(level), api.groups()]), [level]);
@@ -57,7 +56,12 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
               {shown.length === 0 ? (
                 <div className="notice">
                   <h2>ไม่มีข่าวตรงกับตัวกรองนี้</h2>
-                  <p>ลองเลือกหมวดอื่น หรือปรับความเข้มของการจับคู่ให้หลวมลง</p>
+                  <p>
+                    ลองเลือกหมวดอื่น หรือปรับความเข้มของการจับคู่ให้หลวมลงใน{" "}
+                    <a className="inline-link" href="#/settings">
+                      ตั้งค่า
+                    </a>
+                  </p>
                 </div>
               ) : (
                 <ul className="card feed">
@@ -65,17 +69,13 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
                     const url = safeUrl(article.url);
                     return (
                       <li key={article.id}>
-                        <h2>{article.title}</h2>
+                        <h2>
+                          <Headline title={article.title} url={url} />
+                        </h2>
                         <p className="news-meta">
                           {article.source}
                           <span aria-hidden> / </span>
                           {formatDate(article.published_at)}
-                          {url && (
-                            <a className="link" href={url} target="_blank" rel="noreferrer">
-                              อ่านข่าวต้นทาง
-                              <ArrowUpRight aria-hidden size={14} />
-                            </a>
-                          )}
                         </p>
                         {companies.length > 0 ? (
                           <div className="tickers">

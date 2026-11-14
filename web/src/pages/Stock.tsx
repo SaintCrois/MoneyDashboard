@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowUpRight, CircleCheck, Info } from "lucide-react";
+import { ArrowLeft, Circle, Info } from "lucide-react";
 import {
   api,
   formatDate,
@@ -12,7 +12,7 @@ import {
   type Scenario,
 } from "../api";
 import { useLoad } from "../hooks";
-import { ErrorState, ImpactLabel, CompanyTile, LinkType, Skeleton } from "./shared";
+import { CompanyTile, ErrorState, Headline, ImpactLabel, LinkType, Skeleton } from "./shared";
 
 interface Props {
   ticker: string;
@@ -22,19 +22,17 @@ interface Props {
 
 /**
  * One business angle. The left column is what the news says; the right column,
- * on a grey ground, is the system's reading of it, kept visibly apart.
+ * behind a rule, is the system's reading of it, kept visibly apart.
  */
 function Angle({
   scenario,
   items,
   ticker,
-  onCite,
   onJump,
 }: {
   scenario: Scenario;
   items: InsightItem[];
   ticker: string;
-  onCite: (refs: number[]) => void;
   onJump: (n: number) => void;
 }) {
   const cited = items.filter((it) => scenario.refs.includes(it.n));
@@ -43,13 +41,7 @@ function Angle({
   const direct = cited.filter((it) => it.direct).length;
 
   return (
-    <article
-      className="card angle"
-      onMouseEnter={() => onCite(scenario.refs)}
-      onMouseLeave={() => onCite([])}
-      onFocus={() => onCite(scenario.refs)}
-      onBlur={() => onCite([])}
-    >
+    <article className="card angle">
       <header className="angle-head">
         <h2>มุม{scenario.label}</h2>
         <ImpactLabel kind={scenario.kind} />
@@ -98,7 +90,7 @@ function Angle({
             <ul className="checks">
               {scenario.check.map((c) => (
                 <li key={c}>
-                  <CircleCheck aria-hidden size={16} />
+                  <Circle aria-hidden size={14} />
                   {c}
                 </li>
               ))}
@@ -116,8 +108,7 @@ function Angle({
 
 export function StockPage({ ticker, level, onLevel }: Props) {
   const [state, reload] = useLoad(() => api.company(ticker, level), [ticker, level]);
-  // News numbers cited by the angle under the pointer or focus, and the one just jumped to.
-  const [cited, setCited] = useState<number[]>([]);
+  // The news item just jumped to from an angle, marked briefly so the eye lands on it.
   const [flash, setFlash] = useState<number | null>(null);
 
   function jumpTo(n: number) {
@@ -160,11 +151,10 @@ export function StockPage({ ticker, level, onLevel }: Props) {
                   <p className="lede">
                     {shortName(company) !== company.ticker && `${shortName(company)} `}หมวด{industryLabel(company)}
                   </p>
+                  <p className="lede">
+                    พบ {total} ข่าวที่อาจเกี่ยวข้อง จากข่าวล่าสุด {pool_size} ชิ้น
+                  </p>
                 </div>
-                <p className="stat">
-                  <strong>{total}</strong>
-                  <span>ข่าวที่อาจเกี่ยวข้อง จากข่าวล่าสุด {pool_size} ชิ้น</span>
-                </p>
               </div>
 
               {items.length === 0 ? (
@@ -190,14 +180,7 @@ export function StockPage({ ticker, level, onLevel }: Props) {
                   ) : (
                     <div className="angles">
                       {scenarios.map((s) => (
-                        <Angle
-                          key={s.group}
-                          scenario={s}
-                          items={items}
-                          ticker={company.ticker}
-                          onCite={setCited}
-                          onJump={jumpTo}
-                        />
+                        <Angle key={s.group} scenario={s} items={items} ticker={company.ticker} onJump={jumpTo} />
                       ))}
                     </div>
                   )}
@@ -206,20 +189,19 @@ export function StockPage({ ticker, level, onLevel }: Props) {
                     <div className="card-head">
                       <h2 id="sources-h">ข่าวที่ใช้อ้างอิง</h2>
                       <p>
-                        แสดง {items.length} จาก {total} ข่าว เรียงตามความเกี่ยวข้อง
+                        แสดง {items.length} จาก {total} ข่าว เรียงตามความเกี่ยวข้อง กดหัวข้อข่าวเพื่ออ่านจากต้นทาง
                       </p>
                     </div>
                     <ol className="news">
                       {items.map(({ n, article, direct, reason }) => {
                         const url = safeUrl(article.url);
-                        const cls = ["news-item", cited.includes(n) && "is-cited", flash === n && "is-flash"]
-                          .filter(Boolean)
-                          .join(" ");
                         return (
-                          <li key={article.id} id={`news-${n}`} className={cls}>
+                          <li key={article.id} id={`news-${n}`} className={flash === n ? "news-item is-flash" : "news-item"}>
                             <span className="news-n">{n}</span>
                             <div>
-                              <h3>{article.title}</h3>
+                              <h3>
+                                <Headline title={article.title} url={url} />
+                              </h3>
                               <p className="news-meta">
                                 {article.source}
                                 <span aria-hidden> / </span>
@@ -229,12 +211,6 @@ export function StockPage({ ticker, level, onLevel }: Props) {
                                 <LinkType direct={direct} />
                                 <span>{reason}</span>
                               </div>
-                              {url && (
-                                <a className="link" href={url} target="_blank" rel="noreferrer">
-                                  อ่านข่าวต้นทาง
-                                  <ArrowUpRight aria-hidden size={16} />
-                                </a>
-                              )}
                             </div>
                           </li>
                         );
