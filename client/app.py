@@ -23,13 +23,24 @@ REQUEST_TIMEOUT = 15
 # API helpers
 # ---------------------------------------------------------------------------
 
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_get(path: str, params_key: tuple):
+    """GET with a short cache. Raises on failure so errors are never cached."""
+    response = requests.get(
+        f"{BACKEND_URL}{path}", params=dict(params_key) or None, timeout=REQUEST_TIMEOUT
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def api_get(path: str, params: Optional[dict] = None) -> Optional[dict]:
+    # Streamlit reruns the whole script on every interaction; without the cache
+    # each rerun repeats every backend call.
+    key = tuple(sorted((params or {}).items()))
     try:
-        response = requests.get(
-            f"{BACKEND_URL}{path}", params=params, timeout=REQUEST_TIMEOUT
-        )
-        response.raise_for_status()
-        return response.json()
+        if not st.runtime.exists():  # plain Python (unit tests, scripts): no cache
+            return _cached_get.__wrapped__(path, key)
+        return _cached_get(path, key)
     except Exception:
         return None
 
@@ -40,6 +51,7 @@ def api_post(path: str, json_body: Optional[dict] = None) -> Optional[dict]:
             f"{BACKEND_URL}{path}", json=json_body, timeout=REQUEST_TIMEOUT
         )
         response.raise_for_status()
+        _cached_get.clear()  # a write happened; cached reads may be stale
         return response.json()
     except Exception:
         return None
@@ -198,6 +210,7 @@ def generate_ai_assessment(company_id: int, event_id: int) -> Optional[list]:
         if not response.ok:
             st.error(response.json().get("detail", "AI analysis failed."))
             return None
+        _cached_get.clear()  # new assessment saved; cached reads may be stale
         return response.json()
     except (requests.RequestException, ValueError):
         st.error("AI request could not be confirmed. Refresh saved assessments before retrying.")

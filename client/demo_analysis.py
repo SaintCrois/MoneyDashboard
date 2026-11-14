@@ -137,11 +137,11 @@ def render_demo(companies, load_articles):
         st.session_state["demo_analysis"] = {"stage": "processing", "company": dict(lookup[company_id]),
                                                "items": items, "loaded_count": len(articles),
                                                "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-        with st.status("กำลังประมวลผลด้วย AI (Demo — ยังไม่มีการใช้ AI จริง)", expanded=True) as status:
+        with st.status("กำลังคัดข่าวที่เกี่ยวข้อง (Demo — ยังไม่มีการใช้ AI จริง)", expanded=True) as status:
             show_news(items)
             progress = st.progress(0, text="กำลังคัดข่าวที่อาจเกี่ยวข้อง")
             for percent, label in [(30, "จัดกลุ่มคำสำคัญในข่าว"), (65, "จำลองการเชื่อมโยงกับธุรกิจ"), (100, "เตรียมหน้าสรุปตัวอย่าง")]:
-                time.sleep(0.7)
+                time.sleep(0.3)
                 progress.progress(percent, text=label)
             status.update(label="ประมวลผลเดโมเสร็จแล้ว", state="complete")
         st.session_state["demo_analysis"]["stage"] = "summary"

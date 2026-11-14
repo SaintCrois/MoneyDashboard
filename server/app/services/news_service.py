@@ -10,6 +10,7 @@ are unavailable, the application continues to work with stored articles.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -271,6 +272,25 @@ def _record_source_status(db: Session, source_result: dict) -> None:
         logger.exception("Failed to persist news source status for %s", source_result.get("name"))
 
 
+def _fetch_feeds_parallel(sources) -> dict:
+    """Fetch enabled RSS sources concurrently. Maps url -> fetch dict or the raised exception."""
+    targets = [
+        s.url for s in sources
+        if getattr(s, "enabled", True) and s.url and s.source_type == "rss"
+    ]
+
+    def _safe_fetch(url: str):
+        try:
+            return _fetch_feed(url)
+        except Exception as exc:  # noqa: BLE001 - re-raised per source by the caller
+            return exc
+
+    if not targets:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(targets))) as pool:
+        return dict(zip(targets, pool.map(_safe_fetch, targets)))
+
+
 def ingest_articles(
     db: Session,
     sources: Optional[List[NewsSource]] = None,
@@ -289,6 +309,10 @@ def ingest_articles(
         "status": "No Articles",
         "sources": [],
     }
+
+    # Fetch every enabled RSS feed in parallel; results are stored one source
+    # at a time below so database writes stay on this thread.
+    fetched = _fetch_feeds_parallel(sources)
 
     for source in sources:
         source_result = {
@@ -317,7 +341,9 @@ def ingest_articles(
 
         try:
             if source.source_type == "rss":
-                fetch = _fetch_feed(source.url)
+                fetch = fetched[source.url]
+                if isinstance(fetch, Exception):
+                    raise fetch
                 source_result["http_status"] = fetch.get("http_status")
                 source_result["content_type"] = fetch.get("content_type")
                 parsed = _parse_rss_feed(
