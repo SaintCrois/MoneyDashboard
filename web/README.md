@@ -1,18 +1,90 @@
 # WhyMove web app
 
-React + TypeScript on Vite. Reads from the FastAPI backend through `/api`.
+หน้าเว็บ WhyMove ทำด้วย React + TypeScript บน Vite ดึงข้อมูลจาก FastAPI backend ผ่าน `/api`
+ระบบจับคู่ข่าวกับหุ้นจากคำในข่าว ยังไม่ได้ใช้ AI
 
+## เครื่องต้องมี
+
+- Python 3.10 ขึ้นไป
+- Docker Desktop (ใช้รัน PostgreSQL)
+- Node.js 18 ขึ้นไป
+
+## ตั้งค่าครั้งแรก
+
+คำสั่งด้านล่างเป็น PowerShell บน Windows ให้รันจากโฟลเดอร์หลักของ repo
+
+**1. ลง Python package และสร้าง `.env`**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r server/requirements.txt
+copy .env.example .env
 ```
-# 1. backend (from the repo root)
-uvicorn app.main:app --app-dir server --port 8000
 
-# 2. web app
+ค่าใน `.env` ใช้ค่าเริ่มต้นได้เลย (PostgreSQL พอร์ต 5432)
+
+**2. เปิดฐานข้อมูล**
+
+```powershell
+docker compose up -d
+```
+
+**3. เปิด backend** (เปิดหน้าต่างนี้ทิ้งไว้)
+
+```powershell
+uvicorn app.main:app --reload --app-dir server
+```
+
+ตารางในฐานข้อมูลจะถูกสร้างเองตอนเปิดครั้งแรก
+
+**4. ใส่หุ้น 10 ตัวกับข่าว** (ทำครั้งเดียว)
+
+เปิด http://localhost:8000/docs แล้วกด Try it out ทีละอัน
+
+- `POST /api/companies/sync` โหลดหุ้น 10 ตัวจาก `server/data/set_companies_template.csv`
+- `POST /api/news/ingest` ดึงข่าวจากแหล่งข่าวไทยและต่างประเทศ ต้องใช้เน็ตและรอสักพัก
+
+ถ้าข้ามขั้นนี้ หน้าเว็บจะเปิดได้แต่ไม่มีหุ้นและข่าว
+
+**5. เปิดหน้าเว็บ** (อีกหน้าต่างหนึ่ง)
+
+```powershell
 cd web
 npm install
-npm run dev        # http://localhost:5173
+npm run dev
 ```
 
-Screens: holdings (`#/`), one stock (`#/stock/PTT`), news feed (`#/news`), alerts (`#/alerts`).
-The sidebar switches match strictness (strict / medium / loose) and previews the phone layout on a desktop screen.
+แล้วเปิด http://localhost:5173
 
-Data comes from `/api/insights/*` (see `server/app/api/insights.py`). Matching is keyword-level; no AI is used.
+## ครั้งต่อไป
+
+เปิดแค่ขั้น 2, 3 และ 5 (`docker compose up -d`, backend และ `npm run dev`)
+
+## หน้าต่าง ๆ
+
+| หน้า | ที่อยู่ | ใช้ทำอะไร |
+|---|---|---|
+| หุ้นที่ถือ | `#/` | เพิ่มหุ้นที่ถือ ดูจำนวนข่าวที่อาจเกี่ยวกับแต่ละตัว และกดดึงข่าวล่าสุด |
+| หุ้นแต่ละตัว | `#/stock/PTT` | ทำไมหุ้นขยับ แยกเป็นเรื่องตามธุรกิจ ฝั่งซ้ายคือข่าวบอกอะไร ฝั่งขวาคือระบบตีความ ใต้การ์ดมีรายการข่าวที่ใช้ |
+| ข่าววันนี้ | `#/news` | ข่าวล่าสุดทั้งหมด กรองตามหมวด หรือเฉพาะหุ้นที่ถือ |
+| แจ้งเตือน | `#/alerts` | หน้าตัวอย่าง ยังกดใช้ไม่ได้ |
+| ตั้งค่า | `#/settings` | ความเข้มการจับคู่ข่าว เข้ม กลาง หลวม ถ้าข่าวน้อยให้ลองหลวม |
+
+ปุ่ม จอคอม / มือถือ ที่มุมล่างซ้ายใช้สลับดูหน้าจอแบบมือถือตอนเดโม่บนคอม
+
+ค่าที่ตั้งไว้ (หุ้นที่ถือ ความเข้ม ขนาดจอ) จำไว้ในเบราว์เซอร์เครื่องนั้น
+
+## ถ้าติดปัญหา
+
+- **หน้าเว็บขึ้น "โหลดข้อมูลไม่ได้"** backend ยังไม่ได้เปิด ให้ทำขั้น 3
+- **ดึงข่าวแล้วได้ 0 ชิ้น หรือ error เรื่อง SSL** เคยเจอบน macOS แก้โดยเปิด backend แบบนี้แทน
+  `SSL_CERT_FILE="$(python -m certifi)" uvicorn app.main:app --app-dir server`
+- **ข่าวไม่เหมือนเครื่องเพื่อน** ปกติ เพราะแต่ละเครื่องดึงข่าวคนละเวลา
+
+## ข้อมูลมาจากไหน
+
+- หน้าเว็บอ่านจาก `/api/insights/*` (ดู `server/app/api/insights.py`)
+- การจับคู่และข้อความผลกระทบอยู่ใน `server/app/services/keyword_insight.py` ใช้ร่วมกับ Streamlit
+- โลโก้หุ้นอยู่ใน `public/logos/` (ดึงจาก Wikipedia เป็นเครื่องหมายการค้าของแต่ละบริษัท ใช้ในต้นแบบเท่านั้น)
+- ฟอนต์ Google Sans (OFL) รวมมาในแพ็กเกจแล้ว หน้าเว็บไม่ต้องใช้เน็ต ยกเว้นตอนดึงข่าวและเปิดอ่านข่าวฉบับเต็ม

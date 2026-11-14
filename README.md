@@ -1,5 +1,10 @@
 # AI Investment Impact Radar
 
+## WhyMove web app
+
+The user-facing web app (React) lives in `web/`. Setup steps, including loading
+the 10 companies and the news, are in [`web/README.md`](web/README.md).
+
 ## Dashboard demo (no AI API required)
 
 On Dashboard, select a company and click **ประมวลผล (Demo)**. The app loads up
@@ -269,6 +274,9 @@ streamlit run client/app.py
 
 The frontend listens on `http://localhost:8501` by default and retrieves all
 data through the FastAPI backend (it never connects to PostgreSQL directly).
+
+The WhyMove web app is a second frontend on `http://localhost:5173`; see
+[`web/README.md`](web/README.md).
 
 ## Test Execution
 
