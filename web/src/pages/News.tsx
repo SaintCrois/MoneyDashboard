@@ -60,7 +60,7 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
                   <p>ลองเลือกหมวดอื่น หรือปรับความเข้มของการจับคู่ให้หลวมลง</p>
                 </div>
               ) : (
-                <ul className="feed">
+                <ul className="card feed">
                   {shown.map(({ article, companies }) => {
                     const url = safeUrl(article.url);
                     return (

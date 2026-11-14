@@ -97,6 +97,11 @@ export function industryLabel(c: Company): string {
   return (c.industry_name && INDUSTRY_TH[c.industry_name]) || c.industry_name || "ไม่ระบุหมวด";
 }
 
+/** Lowercase industry key, used to pick the tile icon and tint. */
+export function industryKey(c: Company): string {
+  return (c.industry_name ?? "other").toLowerCase();
+}
+
 export function shortName(c: Company): string {
   return c.name.replace(/\s*Public Company Limited\s*$/i, "");
 }
@@ -107,13 +112,6 @@ export function formatDate(iso: string | null): string {
   if (!iso) return "ไม่ทราบวันที่";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "ไม่ทราบวันที่" : dateFmt.format(d);
-}
-
-/** Today as a photo-booth date stamp: 14.11.26 */
-export function stampDate(): string {
-  const d = new Date();
-  const two = (n: number) => String(n).padStart(2, "0");
-  return `${two(d.getDate())}.${two(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)}`;
 }
 
 export function safeUrl(url: string): string | null {

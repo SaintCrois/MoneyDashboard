@@ -10,12 +10,14 @@ export function AlertsPage({ holdings }: { holdings: string[] }) {
         </div>
       </div>
 
-      <div className="lock">
-        <Lock aria-hidden size={22} />
+      <div className="card lock">
+        <span className="lock-tile">
+          <Lock aria-hidden size={22} strokeWidth={1.75} />
+        </span>
         <div>
           <h2>เชื่อมบัญชี Trinity เพื่อรับแจ้งเตือน</h2>
           <p>ฟีเจอร์นี้ยังไม่เปิดใช้ในต้นแบบ หน้านี้แสดงให้เห็นว่าจะทำงานอย่างไรเมื่อเปิดใช้</p>
-          <button type="button" className="btn btn-primary" disabled>
+          <button type="button" className="btn" disabled>
             เชื่อมบัญชี Trinity
           </button>
         </div>
@@ -25,7 +27,7 @@ export function AlertsPage({ holdings }: { holdings: string[] }) {
       {holdings.length === 0 ? (
         <p className="tickers-none">เพิ่มหุ้นในหน้าหุ้นที่ฉันถือก่อน</p>
       ) : (
-        <ul className="toggles">
+        <ul className="card toggles">
           {holdings.map((t) => (
             <li key={t}>
               <strong>{t}</strong>

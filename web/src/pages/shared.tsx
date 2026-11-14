@@ -1,11 +1,47 @@
-import { ArrowUpDown, CircleHelp, Network, Target } from "lucide-react";
+import {
+  ArrowUpDown,
+  Building2,
+  CircleHelp,
+  FlaskConical,
+  HeartPulse,
+  Landmark,
+  Network,
+  Plane,
+  RadioTower,
+  ShoppingBasket,
+  Target,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { industryKey, industryLabel, type Company } from "../api";
+
+const INDUSTRY_ICON: Record<string, LucideIcon> = {
+  energy: Zap,
+  tourism: Plane,
+  petrochemicals: FlaskConical,
+  financials: Landmark,
+  technology: RadioTower,
+  healthcare: HeartPulse,
+  consumer: ShoppingBasket,
+};
+
+/** Pastel tile with the industry's icon. The industry name is in the title for pointer users. */
+export function IndustryTile({ company, large = false }: { company: Company; large?: boolean }) {
+  const key = industryKey(company);
+  const Icon = INDUSTRY_ICON[key] ?? Building2;
+  return (
+    <span className={large ? "ind-tile is-lg" : "ind-tile"} data-industry={key} title={industryLabel(company)}>
+      <Icon aria-hidden size={large ? 26 : 20} strokeWidth={1.75} />
+    </span>
+  );
+}
 
 export function Skeleton({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="skeleton" aria-busy="true" aria-label="กำลังโหลด">
+    <div className="card skeleton" aria-busy="true" aria-label="กำลังโหลด">
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="skeleton-row">
-          <span style={{ width: "4.5rem" }} />
+          <span style={{ width: "2.75rem", height: "2.75rem", borderRadius: "12px" }} />
           <span style={{ width: `${62 - i * 7}%` }} />
         </div>
       ))}
@@ -43,12 +79,12 @@ export function LinkType({ direct }: { direct: boolean }) {
 export function ImpactLabel({ kind }: { kind: "mixed" | "uncertain" }) {
   return kind === "mixed" ? (
     <span className="impact">
-      <ArrowUpDown aria-hidden size={16} />
+      <ArrowUpDown aria-hidden size={14} />
       ผลกระทบผสม
     </span>
   ) : (
     <span className="impact">
-      <CircleHelp aria-hidden size={16} />
+      <CircleHelp aria-hidden size={14} />
       ทิศทางยังไม่แน่ชัด
     </span>
   );

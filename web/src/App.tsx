@@ -10,7 +10,7 @@ import { AlertsPage } from "./pages/Alerts";
 const DEFAULT_HOLDINGS = ["PTT", "KBANK", "IVL", "CPALL"];
 
 const NAV = [
-  { key: "", label: "หุ้นที่ฉันถือ", icon: Briefcase },
+  { key: "", label: "หุ้นที่ถือ", icon: Briefcase },
   { key: "news", label: "ข่าววันนี้", icon: Newspaper },
   { key: "alerts", label: "แจ้งเตือน", icon: Bell },
 ];
@@ -18,9 +18,11 @@ const NAV = [
 function LevelControl({ level, onChange }: { level: Level; onChange: (l: Level) => void }) {
   const current = LEVELS.find((l) => l.key === level)!;
   return (
-    <fieldset className="level">
-      <legend>ความเข้มของการจับคู่ข่าวกับหุ้น</legend>
-      <div className="segmented" role="radiogroup">
+    <div className="level">
+      <span className="level-label" id="level-label">
+        ความเข้มการจับคู่ข่าว
+      </span>
+      <div className="segmented" role="radiogroup" aria-labelledby="level-label">
         {LEVELS.map((l) => (
           <label key={l.key} className={l.key === level ? "is-on" : undefined}>
             <input type="radio" name="level" checked={l.key === level} onChange={() => onChange(l.key)} />
@@ -29,7 +31,7 @@ function LevelControl({ level, onChange }: { level: Level; onChange: (l: Level) 
         ))}
       </div>
       <p className="level-rule">{current.rule}</p>
-    </fieldset>
+    </div>
   );
 }
 
@@ -45,6 +47,14 @@ function DeviceSwitch({ device, onChange }: { device: string; onChange: (d: stri
         มือถือ
       </button>
     </div>
+  );
+}
+
+function BrandMark() {
+  return (
+    <span className="brand-mark" aria-hidden>
+      W
+    </span>
   );
 }
 
@@ -77,36 +87,32 @@ export function App() {
     <div className="stage" data-device={device}>
       <div className="app">
         <div className="shell">
-          <header className="rail">
-            <a className="wordmark" href="#/">
-              Why<span>Move</span>
+          <nav className="rail" aria-label="เมนูหลัก">
+            <a className="rail-logo" href="#/" aria-label="WhyMove หน้าแรก">
+              <BrandMark />
             </a>
-            <nav aria-label="เมนูหลัก">
-              {NAV.map(({ key, label, icon: Icon }) => (
-                <a key={key} href={`#/${key}`} aria-current={navKey === key ? "page" : undefined}>
-                  <Icon aria-hidden size={18} />
-                  {label}
-                </a>
-              ))}
-            </nav>
-            <div className="rail-foot">
-              <LevelControl level={level} onChange={setLevel} />
-              <DeviceSwitch device={device} onChange={setDevice} />
-            </div>
-          </header>
+            {NAV.map(({ key, label, icon: Icon }) => (
+              <a key={key} className="rail-item" href={`#/${key}`} aria-current={navKey === key ? "page" : undefined}>
+                <Icon aria-hidden size={20} strokeWidth={1.75} />
+                {label}
+              </a>
+            ))}
+          </nav>
 
           <header className="topbar">
-            <a className="wordmark" href="#/">
-              Why<span>Move</span>
+            <a className="brand" href="#/">
+              <BrandMark />
+              WhyMove
             </a>
             <DeviceSwitch device={device} onChange={setDevice} />
           </header>
 
           <main className="main" ref={mainRef}>
-            <div className="page">{page}</div>
-            <div className="mobile-level">
+            <div className="panel-bar">
               <LevelControl level={level} onChange={setLevel} />
+              <DeviceSwitch device={device} onChange={setDevice} />
             </div>
+            <div className="page">{page}</div>
             <p className="disclaimer">
               ข้อมูลนี้เป็นการวิเคราะห์เพื่อประกอบความเข้าใจ ไม่ใช่คำแนะนำการลงทุน ระบบจับคู่ข่าวด้วยคำสำคัญ ยังไม่ได้ใช้ AI
             </p>
@@ -115,7 +121,7 @@ export function App() {
           <nav className="tabbar" aria-label="เมนูหลัก">
             {NAV.map(({ key, label, icon: Icon }) => (
               <a key={key} href={`#/${key}`} aria-current={navKey === key ? "page" : undefined}>
-                <Icon aria-hidden size={20} />
+                <Icon aria-hidden size={20} strokeWidth={1.75} />
                 {label}
               </a>
             ))}

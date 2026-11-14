@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ChevronRight, Plus, RefreshCw, X } from "lucide-react";
-import { api, industryLabel, LEVELS, shortName, type Level } from "../api";
+import { api, formatDate, industryLabel, LEVELS, shortName, type Level } from "../api";
 import { useLoad } from "../hooks";
-import { ErrorState, Skeleton } from "./shared";
+import { ErrorState, IndustryTile, Skeleton } from "./shared";
 
 interface Props {
   level: Level;
@@ -37,18 +37,18 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
           <h1>หุ้นที่ฉันถือ</h1>
           {state.status === "ready" && (
             <p className="lede">
-              ข่าวล่าสุด {state.data.pool_size} ชิ้น จับคู่ที่ระดับ{levelName}
+              คัดจากข่าวล่าสุด {state.data.pool_size} ชิ้น จับคู่ที่ระดับ{levelName}
             </p>
           )}
         </div>
         <div className="head-actions">
-          <button type="button" className="btn" onClick={pullNews} disabled={refresh.busy}>
-            <RefreshCw aria-hidden size={16} className={refresh.busy ? "spin" : undefined} />
-            {refresh.busy ? "กำลังดึงข่าว" : "ดึงข่าวล่าสุด"}
-          </button>
           <span className="status" role="status">
             {refresh.note}
           </span>
+          <button type="button" className="btn" onClick={pullNews} disabled={refresh.busy} aria-busy={refresh.busy}>
+            <RefreshCw aria-hidden size={16} className={refresh.busy ? "spin" : undefined} />
+            {refresh.busy ? "กำลังดึงข่าว" : "ดึงข่าวล่าสุด"}
+          </button>
         </div>
       </div>
 
@@ -67,19 +67,28 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
                   <p>เลือกหุ้นที่ถืออยู่จากรายการด้านล่าง แล้วระบบจะคัดข่าวที่อาจเกี่ยวข้องให้</p>
                 </div>
               ) : (
-                <ul className="holdings">
-                  {held.map(({ company, count, direct_count, top }, i) => (
+                <ul className="card holdings">
+                  {held.map(({ company, count, direct_count, top }) => (
                     <li key={company.ticker}>
                       <a className="holding" href={`#/stock/${company.ticker}`}>
+                        <IndustryTile company={company} />
                         <span className="holding-id">
-                          <strong className={i % 2 ? "tile tile-b" : "tile"}>{company.ticker}</strong>
-                          <span>{industryLabel(company)}</span>
+                          <strong>{company.ticker}</strong>
+                          <span>{shortName(company) !== company.ticker ? shortName(company) : industryLabel(company)}</span>
                         </span>
-                        <span className="holding-body">
-                          {shortName(company) !== company.ticker && <span className="holding-name">{shortName(company)}</span>}
-                          <span className="holding-top">
-                            {top ? top.title : "ไม่พบข่าวที่เกี่ยวข้องที่ระดับนี้ ลองปรับความเข้มให้หลวมลง"}
-                          </span>
+                        <span className="holding-news">
+                          {top ? (
+                            <>
+                              <span className="holding-top">{top.title}</span>
+                              <span className="holding-meta">
+                                {top.source}
+                                <span aria-hidden> / </span>
+                                {formatDate(top.published_at)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="holding-meta">ไม่พบข่าวที่เกี่ยวข้องที่ระดับนี้ ลองปรับความเข้มให้หลวมลง</span>
+                          )}
                         </span>
                         <span className="holding-count">
                           <strong>{count}</strong>
