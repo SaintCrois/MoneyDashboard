@@ -6,7 +6,7 @@ PostgreSQL directly.
 """
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import requests
 import streamlit as st
@@ -139,8 +139,6 @@ def get_event_companies(event_id: int) -> list[dict]:
     return data if isinstance(data, list) else []
 
 
-<<<<<<< Updated upstream
-=======
 def get_company_events(company_id: int) -> list[dict]:
     data = api_get(f"/api/companies/{company_id}/events")
     return data if isinstance(data, list) else []
@@ -185,7 +183,7 @@ def generate_assessments(company_id: int, event_id: Optional[int] = None) -> Opt
     payload: dict[str, Any] = {"company_id": company_id}
     if event_id is not None:
         payload["event_id"] = event_id
-    data = api_post("/api/assessments/generate", json_body=payload)
+    data = api_post("/api/assessments/generate", json=payload)
     return data if isinstance(data, list) else None
 
 
@@ -259,7 +257,11 @@ def dashboard_ai_impacts(companies: list[dict]) -> None:
 # Utilities
 # ---------------------------------------------------------------------------
 
->>>>>>> Stashed changes
+def _format_dt(value: Any) -> str:
+    """Format timestamps for assessment views, including missing values."""
+    return str(value).replace("T", " ")[:19] if value else "—"
+
+
 def _ingestion_status_badge(source_result: dict) -> str:
     """Return explicit ingestion status: Success, No Articles, Failed, Partial Success."""
     if source_result.get("final_status"):
@@ -308,10 +310,8 @@ def page_dashboard() -> None:
     col2.metric("Total Industries", total_industries)
     col3.metric("Backend", status_text)
 
-<<<<<<< Updated upstream
     if load_error:
         st.error(f"Unable to load company data from backend: {load_error}")
-=======
     # Demo flow is local and never calls the configured AI provider.
     import sys
     from pathlib import Path
@@ -321,7 +321,6 @@ def page_dashboard() -> None:
     from client.demo_analysis import render_demo
     if render_demo(companies, get_articles):
         return
->>>>>>> Stashed changes
 
     st.subheader("Companies")
     if companies:
