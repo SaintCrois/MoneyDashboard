@@ -261,11 +261,10 @@ def test_default_sources_configuration_verified():
     names = [s.name for s in DEFAULT_SOURCES]
     by_name = {s.name: s for s in DEFAULT_SOURCES}
 
-    # Must not contain old international/stale defaults
-    assert "https://feeds.bbci.co.uk/news/business/rss.xml" not in urls
-    assert "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US" not in urls
-    assert "https://www.channelnewsasia.com/api/v1/rss-outbound-feed" not in urls
-    assert "https://www.investing.com/rss/news.rss" not in urls
+    # Team decision 2026-11-14: global sources are allowed again, because events
+    # abroad reach Thai listed companies indirectly. Thai feeds stay first.
+    assert "https://feeds.bbci.co.uk/news/business/rss.xml" in urls
+    assert names.index("Bangkok Post Business") < names.index("BBC Business")
 
     # Verified accessible Bangkok Post English RSS feeds enabled
     assert "https://www.bangkokpost.com/rss/data/business.xml" in urls

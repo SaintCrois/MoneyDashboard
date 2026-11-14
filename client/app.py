@@ -358,7 +358,18 @@ def page_dashboard() -> None:
     if root not in sys.path:
         sys.path.insert(0, root)
     from client.demo_analysis import render_demo
-    if render_demo(companies, get_articles):
+    def _load_demo_articles(limit: int = 100) -> list[dict]:
+        # The news API returns at most 100 rows per call; read several pages so
+        # Thai and global sources are both in the pool the demo ranks.
+        pool: list[dict] = []
+        for skip in range(0, 400, 100):
+            page = get_articles(skip=skip, limit=100)
+            pool.extend(page)
+            if len(page) < 100:
+                break
+        return pool
+
+    if render_demo(companies, _load_demo_articles):
         return
 
     st.subheader("Companies")
