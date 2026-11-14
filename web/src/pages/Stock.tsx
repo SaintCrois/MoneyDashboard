@@ -12,7 +12,7 @@ import {
   type Scenario,
 } from "../api";
 import { useLoad } from "../hooks";
-import { ErrorState, ImpactLabel, IndustryTile, LinkType, Skeleton } from "./shared";
+import { ErrorState, ImpactLabel, CompanyTile, LinkType, Skeleton } from "./shared";
 
 interface Props {
   ticker: string;
@@ -154,7 +154,7 @@ export function StockPage({ ticker, level, onLevel }: Props) {
           return (
             <>
               <div className="stock-head">
-                <IndustryTile company={company} large />
+                <CompanyTile company={company} large />
                 <div className="stock-title">
                   <h1>ทำไม {company.ticker} ขยับ</h1>
                   <p className="lede">

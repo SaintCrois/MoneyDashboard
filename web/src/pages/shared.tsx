@@ -13,7 +13,11 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { industryKey, industryLabel, type Company } from "../api";
+import { useState } from "react";
+import { industryKey, industryLabel, shortName, type Company } from "../api";
+
+// Logos in public/logos, from each company's Wikipedia page. Logos with a symbol are cropped to it.
+const LOGOS = new Set(["ADVANC", "AOT", "BDMS", "CPALL", "GULF", "IVL", "KBANK", "PTT", "PTTEP", "SCB"]);
 
 const INDUSTRY_ICON: Record<string, LucideIcon> = {
   energy: Zap,
@@ -25,12 +29,26 @@ const INDUSTRY_ICON: Record<string, LucideIcon> = {
   consumer: ShoppingBasket,
 };
 
-/** Pastel tile with the industry's icon. The industry name is in the title for pointer users. */
-export function IndustryTile({ company, large = false }: { company: Company; large?: boolean }) {
+/**
+ * The company's logo on a white tile, or a pastel tile with the industry's icon
+ * when there is no logo file. Decorative: the ticker is always written next to it.
+ */
+export function CompanyTile({ company, large = false }: { company: Company; large?: boolean }) {
+  const [failed, setFailed] = useState(false);
   const key = industryKey(company);
+  const size = large ? " is-lg" : "";
+  const title = `${shortName(company)} หมวด${industryLabel(company)}`;
+
+  if (LOGOS.has(company.ticker) && !failed) {
+    return (
+      <span className={`ind-tile is-logo${size}`} title={title}>
+        <img src={`/logos/${company.ticker}.svg`} alt="" onError={() => setFailed(true)} />
+      </span>
+    );
+  }
   const Icon = INDUSTRY_ICON[key] ?? Building2;
   return (
-    <span className={large ? "ind-tile is-lg" : "ind-tile"} data-industry={key} title={industryLabel(company)}>
+    <span className={`ind-tile${size}`} data-industry={key} title={title}>
       <Icon aria-hidden size={large ? 26 : 20} strokeWidth={1.75} />
     </span>
   );

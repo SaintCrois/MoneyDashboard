@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronRight, Plus, RefreshCw, X } from "lucide-react";
 import { api, formatDate, industryLabel, LEVELS, shortName, type Level } from "../api";
 import { useLoad } from "../hooks";
-import { ErrorState, IndustryTile, Skeleton } from "./shared";
+import { ErrorState, CompanyTile, Skeleton } from "./shared";
 
 interface Props {
   level: Level;
@@ -71,7 +71,7 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
                   {held.map(({ company, count, direct_count, top }) => (
                     <li key={company.ticker}>
                       <a className="holding" href={`#/stock/${company.ticker}`}>
-                        <IndustryTile company={company} />
+                        <CompanyTile company={company} />
                         <span className="holding-id">
                           <strong>{company.ticker}</strong>
                           <span>{shortName(company) !== company.ticker ? shortName(company) : industryLabel(company)}</span>
