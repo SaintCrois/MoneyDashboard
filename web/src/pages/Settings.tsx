@@ -6,14 +6,14 @@ export function SettingsPage({ level, onLevel }: { level: Level; onLevel: (l: Le
       <div className="page-head">
         <div>
           <h1>ตั้งค่า</h1>
-          <p className="lede">ค่าที่ตั้งไว้มีผลกับทุกหน้า และจำไว้ในเครื่องนี้</p>
+          <p className="lede">ตั้งครั้งเดียวใช้ได้ทุกหน้า และจำไว้ในเครื่องนี้</p>
         </div>
       </div>
 
       <section className="card setting" aria-labelledby="level-h">
         <div className="card-head">
-          <h2 id="level-h">ความเข้มของการจับคู่ข่าวกับหุ้น</h2>
-          <p>ยิ่งหลวม ยิ่งเจอข่าวมาก แต่ข่าวที่เกี่ยวข้องทางอ้อมจะปนมาด้วย</p>
+          <h2 id="level-h">ความเข้มในการจับคู่ข่าวกับหุ้น</h2>
+          <p>ยิ่งหลวมยิ่งเจอข่าวเยอะ แต่จะมีข่าวที่เกี่ยวแค่ทางอ้อมปนมาด้วย</p>
         </div>
         <div className="options" role="radiogroup" aria-labelledby="level-h">
           {LEVELS.map((l) => (

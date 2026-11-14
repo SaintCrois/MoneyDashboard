@@ -69,8 +69,9 @@ export function App() {
       <div className="app">
         <div className="shell">
           <nav className="rail" aria-label="เมนูหลัก">
-            <a className="rail-logo" href="#/" aria-label="WhyMove หน้าแรก">
+            <a className="rail-logo" href="#/">
               <BrandMark />
+              <span className="rail-name">WhyMove</span>
             </a>
             {NAV.map(({ key, label, icon: Icon }) => (
               <a key={key} className="rail-item" href={`#/${key}`} aria-current={navKey === key ? "page" : undefined}>
@@ -94,7 +95,7 @@ export function App() {
           <main className="main" ref={mainRef}>
             <div className="page">{page}</div>
             <p className="disclaimer">
-              ข้อมูลนี้เป็นการวิเคราะห์เพื่อประกอบความเข้าใจ ไม่ใช่คำแนะนำการลงทุน ระบบจับคู่ข่าวด้วยคำสำคัญ ยังไม่ได้ใช้ AI
+              WhyMove ช่วยให้เห็นว่าข่าวเกี่ยวกับหุ้นยังไง ไม่ได้แนะนำให้ซื้อหรือขาย ตอนนี้ระบบจับคู่ข่าวจากคำที่อยู่ในข่าว ยังไม่ได้ใช้ AI
             </p>
           </main>
 

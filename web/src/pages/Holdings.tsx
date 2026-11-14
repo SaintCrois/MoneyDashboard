@@ -20,11 +20,11 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
       const r = await api.ingest();
       setRefresh({
         busy: false,
-        note: r.ingested > 0 ? `เพิ่มข่าวใหม่ ${r.ingested} ชิ้น` : "ยังไม่มีข่าวใหม่จากแหล่งข่าว",
+        note: r.ingested > 0 ? `ได้ข่าวใหม่ ${r.ingested} ชิ้น` : "ยังไม่มีข่าวใหม่",
       });
       reload();
     } catch {
-      setRefresh({ busy: false, note: "ดึงข่าวไม่สำเร็จ ลองอีกครั้งได้" });
+      setRefresh({ busy: false, note: "ดึงข่าวไม่ได้ ลองกดอีกครั้ง" });
     }
   }
 
@@ -37,9 +37,9 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
           <h1>หุ้นที่ฉันถือ</h1>
           {state.status === "ready" && (
             <p className="lede">
-              จำนวนข่าวที่อาจเกี่ยวข้องกับแต่ละหุ้น จากข่าวล่าสุด {state.data.pool_size} ชิ้น จับคู่ระดับ{levelName}{" "}
+              ข่าวที่อาจเกี่ยวกับหุ้นแต่ละตัว คัดจากข่าวล่าสุด {state.data.pool_size} ชิ้น ตอนนี้จับคู่แบบ{levelName}{" "}
               <a className="inline-link" href="#/settings">
-                เปลี่ยนในตั้งค่า
+                เปลี่ยนได้ในตั้งค่า
               </a>
             </p>
           )}
@@ -66,8 +66,8 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
             <>
               {held.length === 0 ? (
                 <div className="notice">
-                  <h2>ยังไม่มีหุ้นในรายการ</h2>
-                  <p>เลือกหุ้นที่ถืออยู่จากรายการด้านล่าง แล้วระบบจะคัดข่าวที่อาจเกี่ยวข้องให้</p>
+                  <h2>ยังไม่ได้เพิ่มหุ้น</h2>
+                  <p>กดเพิ่มหุ้นที่ถืออยู่จากด้านล่าง แล้ว WhyMove จะคัดข่าวที่อาจเกี่ยวข้องมาให้</p>
                 </div>
               ) : (
                 <ul className="card holdings">
@@ -90,14 +90,14 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
                               </span>
                             </>
                           ) : (
-                            <span className="holding-meta">ไม่พบข่าวที่เกี่ยวข้องที่ระดับนี้ ลองปรับความเข้มให้หลวมลง</span>
+                            <span className="holding-meta">ยังไม่เจอข่าวที่เกี่ยวข้องในระดับนี้ ลองปรับให้หลวมขึ้นในตั้งค่า</span>
                           )}
                         </span>
                         <span className="holding-count">
                           <span>
                             <strong>{count}</strong> ข่าว
                           </span>
-                          {direct_count > 0 && <em>เอ่ยชื่อบริษัท {direct_count}</em>}
+                          {direct_count > 0 && <em>เอ่ยชื่อตรง ๆ {direct_count}</em>}
                         </span>
                         <ChevronRight aria-hidden size={20} className="holding-go" />
                       </a>

@@ -6,7 +6,7 @@ export function AlertsPage({ holdings }: { holdings: string[] }) {
       <div className="page-head">
         <div>
           <h1>แจ้งเตือน</h1>
-          <p className="lede">รับแจ้งเตือนเมื่อมีข่าวที่อาจกระทบหุ้นที่ถืออยู่ การอ่านข่าวและผลกระทบยังใช้ได้ฟรีเหมือนเดิม</p>
+          <p className="lede">เตือนเมื่อมีข่าวที่อาจกระทบหุ้นที่ถืออยู่ ส่วนการอ่านข่าวกับผลกระทบยังใช้ฟรีเหมือนเดิม</p>
         </div>
       </div>
 
@@ -16,14 +16,14 @@ export function AlertsPage({ holdings }: { holdings: string[] }) {
         </span>
         <div>
           <h2>เชื่อมบัญชี Trinity เพื่อรับแจ้งเตือน</h2>
-          <p>ฟีเจอร์นี้ยังไม่เปิดใช้ในต้นแบบ หน้านี้แสดงให้เห็นว่าจะทำงานอย่างไรเมื่อเปิดใช้</p>
+          <p>เวอร์ชันทดลองนี้ยังกดใช้ไม่ได้ หน้านี้ให้ดูว่าพอเปิดใช้แล้วจะทำงานยังไง</p>
           <button type="button" className="btn" disabled>
             เชื่อมบัญชี Trinity
           </button>
         </div>
       </div>
 
-      <h2 className="list-title">หุ้นที่จะได้รับแจ้งเตือน</h2>
+      <h2 className="list-title">หุ้นที่จะแจ้งเตือน</h2>
       {holdings.length === 0 ? (
         <p className="tickers-none">เพิ่มหุ้นในหน้าหุ้นที่ฉันถือก่อน</p>
       ) : (

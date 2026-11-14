@@ -86,10 +86,10 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
 export function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="notice" role="alert">
-      <h2>เชื่อมต่อระบบหลังบ้านไม่ได้</h2>
-      <p>ตรวจว่า FastAPI รันอยู่ที่พอร์ต 8000 แล้วลองอีกครั้ง</p>
+      <h2>โหลดข้อมูลไม่ได้</h2>
+      <p>เช็กว่า FastAPI รันอยู่ที่พอร์ต 8000 แล้วกดลองใหม่</p>
       <button type="button" className="btn" onClick={onRetry}>
-        ลองอีกครั้ง
+        ลองใหม่
       </button>
     </div>
   );
@@ -100,12 +100,12 @@ export function LinkType({ direct }: { direct: boolean }) {
   return direct ? (
     <span className="tag tag-direct">
       <Target aria-hidden size={14} />
-      เอ่ยชื่อบริษัท
+      เอ่ยชื่อตรง ๆ
     </span>
   ) : (
     <span className="tag">
       <Network aria-hidden size={14} />
-      เกี่ยวกับธุรกิจ
+      เกี่ยวทางอ้อม
     </span>
   );
 }
@@ -114,12 +114,12 @@ export function ImpactLabel({ kind }: { kind: "mixed" | "uncertain" }) {
   return kind === "mixed" ? (
     <span className="impact">
       <ArrowUpDown aria-hidden size={14} />
-      ผลกระทบผสม
+      มีทั้งบวกและลบ
     </span>
   ) : (
     <span className="impact">
       <CircleHelp aria-hidden size={14} />
-      ทิศทางยังไม่แน่ชัด
+      ยังบอกไม่ได้ว่าบวกหรือลบ
     </span>
   );
 }

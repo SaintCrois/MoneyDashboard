@@ -227,9 +227,10 @@ h1 {
 
 .rail-logo {
   display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
+  justify-items: center;
+  gap: 4px;
+  width: 68px;
+  padding: 4px 0;
   margin-bottom: 12px;
   border-radius: var(--radius-element);
 }
@@ -237,6 +238,14 @@ h1 {
 .rail-logo .brand-mark {
   width: 40px;
   height: 40px;
+}
+
+.rail-name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
 
 .rail-item {

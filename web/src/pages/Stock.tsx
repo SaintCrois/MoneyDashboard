@@ -43,7 +43,7 @@ function Angle({
   return (
     <article className="card angle">
       <header className="angle-head">
-        <h2>มุม{scenario.label}</h2>
+        <h2>เรื่อง{scenario.label}</h2>
         <ImpactLabel kind={scenario.kind} />
       </header>
 
@@ -61,14 +61,16 @@ function Angle({
                 </li>
               ))}
             </ul>
-            {cited.length > lead.length && <p className="more">และอีก {cited.length - lead.length} ข่าวในรายการด้านล่าง</p>}
+            {cited.length > lead.length && <p className="more">อีก {cited.length - lead.length} ข่าวอยู่ในรายการด้านล่าง</p>}
           </section>
 
           <section>
             <h3>เกี่ยวกับ {ticker} ยังไง</h3>
             <p>
-              ข่าว {cited.length} ชิ้นมีคำในหมวด{scenario.label} ซึ่งเป็นธุรกิจของบริษัท
-              {direct > 0 && ` และมี ${direct} ชิ้นที่เอ่ยชื่อบริษัทตรง ๆ`}
+              {scenario.group === "economy"
+                ? `ข่าว ${cited.length} ชิ้นนี้พูดถึงเศรษฐกิจโดยรวม เช่น ดอกเบี้ย เงินเฟ้อ หรือค่าเงิน`
+                : `${ticker} ทำธุรกิจ${scenario.label} และข่าว ${cited.length} ชิ้นนี้มีคำเรื่อง${scenario.label}อยู่`}
+              {direct > 0 && ` โดย ${direct} ชิ้นเอ่ยชื่อบริษัทตรง ๆ`}
             </p>
             {terms.length > 0 && (
               <ul className="terms" aria-label="คำที่พบในข่าว">
@@ -82,7 +84,7 @@ function Angle({
 
         <div className="angle-read">
           <section>
-            <h3>ผลที่อาจเกิดได้ทั้งสองด้าน</h3>
+            <h3>อาจกระทบยังไง</h3>
             <p>{scenario.effect}</p>
           </section>
           <section>
@@ -98,7 +100,7 @@ function Angle({
           </section>
           <p className="read-note">
             <Info aria-hidden size={14} />
-            ส่วนนี้เป็นการตีความของระบบจากคำในข่าว ยังไม่ยืนยันว่าบริษัทได้รับผลกระทบจริง
+            ส่วนนี้ระบบตีความจากคำในข่าว ยังไม่ได้ยืนยันว่าบริษัทได้รับผลกระทบจริง
           </p>
         </div>
       </div>
@@ -152,17 +154,17 @@ export function StockPage({ ticker, level, onLevel }: Props) {
                     {shortName(company) !== company.ticker && `${shortName(company)} `}หมวด{industryLabel(company)}
                   </p>
                   <p className="lede">
-                    พบ {total} ข่าวที่อาจเกี่ยวข้อง จากข่าวล่าสุด {pool_size} ชิ้น
+                    เจอ {total} ข่าวที่อาจเกี่ยวข้อง จากข่าวล่าสุด {pool_size} ชิ้น
                   </p>
                 </div>
               </div>
 
               {items.length === 0 ? (
                 <div className="notice">
-                  <h2>ข้อมูลไม่เพียงพอ</h2>
+                  <h2>ข้อมูลยังไม่พอ</h2>
                   <p>
-                    ไม่พบข่าวที่เกี่ยวข้องกับ {company.ticker} ที่ระดับ{LEVELS.find((l) => l.key === level)!.name}{" "}
-                    ระบบจะไม่สร้างผลกระทบขึ้นมาเอง
+                    ยังไม่เจอข่าวที่เกี่ยวกับ {company.ticker} ในระดับ{LEVELS.find((l) => l.key === level)!.name}{" "}
+                    เราเลยไม่เดาผลกระทบขึ้นมาเอง
                   </p>
                   {looser && (
                     <button type="button" className="btn" onClick={() => onLevel(looser.key)}>
@@ -174,8 +176,8 @@ export function StockPage({ ticker, level, onLevel }: Props) {
                 <>
                   {scenarios.length === 0 ? (
                     <div className="notice">
-                      <h2>ข้อมูลไม่เพียงพอ</h2>
-                      <p>พบข่าวที่เอ่ยชื่อบริษัท แต่ยังไม่พอระบุว่ากระทบธุรกิจด้านไหน อ่านข่าวต้นทางได้จากรายการด้านล่าง</p>
+                      <h2>ข้อมูลยังไม่พอ</h2>
+                      <p>มีข่าวที่เอ่ยชื่อบริษัท แต่ยังบอกไม่ได้ว่ากระทบธุรกิจด้านไหน อ่านข่าวเต็มได้จากรายการด้านล่าง</p>
                     </div>
                   ) : (
                     <div className="angles">
@@ -189,7 +191,7 @@ export function StockPage({ ticker, level, onLevel }: Props) {
                     <div className="card-head">
                       <h2 id="sources-h">ข่าวที่ใช้อ้างอิง</h2>
                       <p>
-                        แสดง {items.length} จาก {total} ข่าว เรียงตามความเกี่ยวข้อง กดหัวข้อข่าวเพื่ออ่านจากต้นทาง
+                        {items.length} จาก {total} ข่าว เรียงจากเกี่ยวข้องมากไปน้อย กดหัวข่าวเพื่ออ่านฉบับเต็ม
                       </p>
                     </div>
                     <ol className="news">

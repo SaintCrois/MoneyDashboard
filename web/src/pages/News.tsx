@@ -14,7 +14,7 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
       <div className="page-head">
         <div>
           <h1>ข่าววันนี้</h1>
-          <p className="lede">ข่าวล่าสุดจากแหล่งข่าวไทยและต่างประเทศ พร้อมหุ้นที่อาจเกี่ยวข้อง</p>
+          <p className="lede">ข่าวล่าสุดจากสำนักข่าวไทยและต่างประเทศ ใต้แต่ละข่าวบอกว่าอาจเกี่ยวกับหุ้นตัวไหน</p>
         </div>
       </div>
 
@@ -44,7 +44,7 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
                 <div className="checks-row">
                   <label className="check">
                     <input type="checkbox" checked={relatedOnly} onChange={(e) => setRelatedOnly(e.target.checked)} />
-                    เฉพาะข่าวที่มีหุ้นเกี่ยวข้อง
+                    เฉพาะข่าวที่โยงกับหุ้นได้
                   </label>
                   <label className="check">
                     <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
@@ -55,9 +55,9 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
 
               {shown.length === 0 ? (
                 <div className="notice">
-                  <h2>ไม่มีข่าวตรงกับตัวกรองนี้</h2>
+                  <h2>ไม่มีข่าวตามที่กรองไว้</h2>
                   <p>
-                    ลองเลือกหมวดอื่น หรือปรับความเข้มของการจับคู่ให้หลวมลงใน{" "}
+                    ลองเปลี่ยนหมวด หรือปรับการจับคู่ให้หลวมขึ้นใน{" "}
                     <a className="inline-link" href="#/settings">
                       ตั้งค่า
                     </a>
@@ -92,7 +92,7 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
                             ))}
                           </div>
                         ) : (
-                          <p className="tickers-none">ยังไม่พบหุ้นในรายการที่เกี่ยวข้อง</p>
+                          <p className="tickers-none">ยังโยงกับหุ้นในรายการไม่ได้</p>
                         )}
                       </li>
                     );
