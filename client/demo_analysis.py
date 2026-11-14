@@ -28,6 +28,34 @@ SCENARIOS = {
         "effect": "การเปลี่ยนแปลงของวัตถุดิบและความต้องการสินค้าอาจกระทบส่วนต่างกำไร ผลสุทธิขึ้นอยู่กับราคาขายและความสามารถส่งผ่านต้นทุน",
         "check": "ส่วนต่างราคาผลิตภัณฑ์ ต้นทุนวัตถุดิบ และคำสั่งซื้อ",
     },
+    "banking": {
+        "terms": ("bank", "banks", "banking", "loan", "loans", "lending", "household debt", "npl", "credit", "deposit",
+                  "central bank", "bank of thailand", "ธนาคาร", "สินเชื่อ", "หนี้ครัวเรือน", "หนี้เสีย", "เงินฝาก"),
+        "impact": "ทิศทางยังไม่แน่ชัด (ตัวอย่าง)",
+        "effect": "ข่าวด้านสินเชื่อ หนี้ และนโยบายธนาคารกลางอาจกระทบรายได้ดอกเบี้ยและคุณภาพสินเชื่อของธนาคาร ผลบวกหรือลบขึ้นอยู่กับทิศทางดอกเบี้ยและความสามารถชำระหนี้ของลูกหนี้",
+        "check": "ส่วนต่างอัตราดอกเบี้ย สัดส่วนหนี้เสีย และการตั้งสำรอง",
+    },
+    "telecom": {
+        "terms": ("telecom", "mobile", "5g", "broadband", "spectrum", "data centre", "data center", "cloud", "digital economy",
+                  "social networks", "online", "โทรคมนาคม", "มือถือ", "คลื่นความถี่", "อินเทอร์เน็ต", "ดิจิทัล"),
+        "impact": "ทิศทางยังไม่แน่ชัด (ตัวอย่าง)",
+        "effect": "ข่าวด้านการใช้งานดิจิทัลและกฎกำกับดูแลอาจกระทบรายได้ค่าบริการและเงินลงทุนโครงข่าย ต้องดูว่าเหตุการณ์เพิ่มการใช้งานหรือเพิ่มต้นทุนให้ผู้ให้บริการ",
+        "check": "จำนวนผู้ใช้ รายได้ต่อผู้ใช้ และงบลงทุนโครงข่าย",
+    },
+    "healthcare": {
+        "terms": ("hospital", "hospitals", "healthcare", "health care", "medical", "patients", "medical tourism", "outbreak",
+                  "public health", "โรงพยาบาล", "สาธารณสุข", "ผู้ป่วย", "การแพทย์", "โรคระบาด"),
+        "impact": "ทิศทางยังไม่แน่ชัด (ตัวอย่าง)",
+        "effect": "ข่าวด้านสุขภาพและการเดินทางของผู้ป่วยต่างชาติอาจกระทบจำนวนผู้ใช้บริการโรงพยาบาลเอกชน ผลสุทธิขึ้นอยู่กับสัดส่วนผู้ป่วยต่างชาติและต้นทุนบุคลากร",
+        "check": "จำนวนผู้ป่วย สัดส่วนผู้ป่วยต่างชาติ และต้นทุนบุคลากร",
+    },
+    "retail": {
+        "terms": ("retail", "retailer", "consumer", "consumption", "shoppers", "spending", "minimum wage", "convenience store",
+                  "food prices", "ค้าปลีก", "กำลังซื้อ", "ผู้บริโภค", "ค่าแรงขั้นต่ำ", "ร้านสะดวกซื้อ"),
+        "impact": "ทิศทางยังไม่แน่ชัด (ตัวอย่าง)",
+        "effect": "ข่าวด้านกำลังซื้อและค่าแรงอาจกระทบทั้งยอดขายและต้นทุนของธุรกิจค้าปลีก ผลสุทธิขึ้นอยู่กับว่ารายได้ผู้บริโภคเพิ่มมากกว่าต้นทุนที่สูงขึ้นหรือไม่",
+        "check": "ยอดขายสาขาเดิม ต้นทุนค่าแรง และกำลังซื้อของผู้บริโภค",
+    },
     "economy": {
         "terms": ("interest rate", "inflation", "exchange rate", "tariff", "ดอกเบี้ย", "เงินเฟ้อ", "ค่าเงิน", "ภาษีนำเข้า"),
         "impact": "ทิศทางยังไม่แน่ชัด (ตัวอย่าง)",
@@ -54,6 +82,14 @@ def rank_news(company, articles, limit=8):
         groups.add("tourism")
     if ticker == "ivl" or any(x in profile for x in ("petrochemical", "ปิโตรเคมี")):
         groups.update(("petrochemicals", "energy"))
+    if ticker in ("scb", "kbank") or any(x in profile for x in ("bank", "financ", "ธนาคาร")):
+        groups.add("banking")
+    if ticker == "advanc" or any(x in profile for x in ("communication", "telecom", "สื่อสาร")):
+        groups.add("telecom")
+    if ticker == "bdms" or any(x in profile for x in ("health", "medical", "โรงพยาบาล")):
+        groups.add("healthcare")
+    if ticker == "cpall" or any(x in profile for x in ("commerce", "consumer", "retail", "ค้าปลีก")):
+        groups.add("retail")
     groups.add("economy")
     ranked, seen = [], set()
     for article in articles:
@@ -62,7 +98,10 @@ def rank_news(company, articles, limit=8):
         if identity in seen:
             continue
         text = (title + " " + (article.get("summary") or "")).casefold()
-        direct = bool(ticker and contains(text, ticker))
+        # Tickers must appear in capitals in the original text, so "Gulf of Thailand"
+        # or "the Gulf" is not read as the company GULF.
+        raw = title + " " + (article.get("summary") or "")
+        direct = bool(ticker and re.search(r"(?<![A-Za-z0-9])" + re.escape(ticker.upper()) + r"(?![A-Za-z0-9])", raw))
         name = (company.get("name") or "").casefold().strip()
         direct = direct or bool(len(name) > 5 and name in text)
         matches = {group: [term for term in SCENARIOS[group]["terms"] if contains(text, term)]
