@@ -328,8 +328,7 @@ h1 {
 
 /* ---------- Device preview switch ---------- */
 
-.device-switch,
-.segment {
+.device-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
   padding: 3px;
@@ -337,8 +336,7 @@ h1 {
   background: var(--gray);
 }
 
-.device-switch button,
-.segment button {
+.device-switch button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -354,8 +352,7 @@ h1 {
   transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 
-.device-switch button[aria-pressed="true"],
-.segment button[aria-pressed="true"] {
+.device-switch button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;
@@ -1112,21 +1109,62 @@ h1 {
   gap: 8px 16px;
 }
 
-/* Which news to show: three fixed choices in one pill. */
-.segment {
-  grid-template-columns: repeat(3, auto);
-  justify-self: start;
+.checks-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
 }
 
-.segment button {
-  padding: 7px 16px;
+/* A drawn box over the real checkbox, which stays in place for keyboard and screen readers. */
+.check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
   font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .segment button[aria-pressed="false"]:hover {
-    color: var(--ink);
-  }
+.check input {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.check-box {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-inner);
+  background: var(--surface);
+  color: transparent;
+  transition: background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out),
+    color var(--dur-micro) var(--ease-out);
+}
+
+.check:hover .check-box {
+  border-color: var(--secondary);
+}
+
+.check input:checked + .check-box {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.check input:focus-visible + .check-box {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .filter-chips {

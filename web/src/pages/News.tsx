@@ -1,21 +1,26 @@
 import { useState } from "react";
+import { Check as CheckIcon } from "lucide-react";
 import { api, formatDate, safeUrl, type Level } from "../api";
 import { useLoad } from "../hooks";
 import { ErrorState, Headline, Skeleton } from "./shared";
 
-type Scope = "all" | "related" | "mine";
-
-const SCOPES: { key: Scope; label: string }[] = [
-  { key: "related", label: "โยงกับหุ้นได้" },
-  { key: "mine", label: "หุ้นที่ฉันถือ" },
-  { key: "all", label: "ทุกข่าว" },
-];
+function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="check">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="check-box" aria-hidden>
+        <CheckIcon size={13} strokeWidth={3} />
+      </span>
+      {label}
+    </label>
+  );
+}
 
 export function NewsPage({ level, holdings }: { level: Level; holdings: string[] }) {
   const [state, reload] = useLoad(() => Promise.all([api.feed(level), api.groups()]), [level]);
   const [group, setGroup] = useState<string>("all");
-  // One choice with three states: every news item, items linked to any stock, items linked to stocks I hold.
-  const [scope, setScope] = useState<Scope>("related");
+  const [mine, setMine] = useState(false);
+  const [relatedOnly, setRelatedOnly] = useState(true);
 
   return (
     <>
@@ -32,20 +37,17 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
         (() => {
           const [feed, groups] = state.data;
           const shown = feed.items.filter((it) => {
-            const cs = scope === "mine" ? it.companies.filter((c) => holdings.includes(c.ticker)) : it.companies;
-            if (scope !== "all" && cs.length === 0) return false;
+            const cs = mine ? it.companies.filter((c) => holdings.includes(c.ticker)) : it.companies;
+            if ((mine || relatedOnly) && cs.length === 0) return false;
             return group === "all" || cs.some((c) => c.groups.includes(group));
           });
           return (
             <>
               <div className="filters">
                 <div className="filters-top">
-                  <div className="segment" role="group" aria-label="ข่าวที่แสดง">
-                    {SCOPES.map((s) => (
-                      <button key={s.key} type="button" aria-pressed={scope === s.key} onClick={() => setScope(s.key)}>
-                        {s.label}
-                      </button>
-                    ))}
+                  <div className="checks-row">
+                    <Check checked={relatedOnly} onChange={setRelatedOnly} label="เฉพาะข่าวที่โยงกับหุ้นได้" />
+                    <Check checked={mine} onChange={setMine} label="เฉพาะหุ้นที่ฉันถือ" />
                   </div>
                   <span className="status">{shown.length} ข่าว</span>
                 </div>
