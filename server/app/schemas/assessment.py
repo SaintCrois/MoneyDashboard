@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AssessmentGenerateRequest(BaseModel):
+    use_ai: bool = Field(default=False, description="Explicitly call the configured AI provider for one event")
     company_id: int = Field(..., description="Company to assess")
     event_id: Optional[int] = Field(default=None, description="Specific event to assess; if omitted, assess most relevant events")
 

@@ -20,6 +20,12 @@ from app.services.impact_assessment_service import (
 router = APIRouter()
 
 
+@router.get("/analysis/status")
+def analysis_status():
+    from app.services.llm_assessment_service import ai_status
+    return ai_status()
+
+
 def _parse_json_field(value):
     if value is None:
         return None
@@ -94,7 +100,13 @@ def generate_assessment_endpoint(
         if not event:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
-    assessments = generate_assessments_for_company(db, company, event_id=payload.event_id)
+    if payload.use_ai and payload.event_id is None:
+        raise HTTPException(status_code=422, detail="Select one event for AI analysis.")
+    from app.services.llm_assessment_service import AIUnavailableError
+    try:
+        assessments = generate_assessments_for_company(db, company, event_id=payload.event_id, use_ai=payload.use_ai)
+    except AIUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return [_assessment_to_out(a, db) for a in assessments]
 
 

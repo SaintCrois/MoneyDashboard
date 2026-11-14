@@ -408,6 +408,7 @@ def generate_assessment(
     company: Company,
     event: Event,
     engine: Optional[AssessmentEngine] = None,
+    use_ai: bool = False,
 ) -> ImpactAssessment:
     """Generate and store an impact assessment for a company-event pair."""
     if engine is None:
@@ -425,7 +426,11 @@ def generate_assessment(
     financial_analysis = analyze_financials(db, company)
     market_analysis = analyze_market(db, company)
 
-    data = engine.assess(db, company, event, event_company, financial_analysis, market_analysis)
+    if use_ai:
+        from app.services.llm_assessment_service import assess_with_ai
+        data = assess_with_ai(db, company, event, event_company, financial_analysis, market_analysis)
+    else:
+        data = engine.assess(db, company, event, event_company, financial_analysis, market_analysis)
 
     assessment = ImpactAssessment(**data)
     db.add(assessment)
@@ -435,7 +440,7 @@ def generate_assessment(
 
 
 def generate_assessments_for_company(
-    db: Session, company: Company, event_id: Optional[int] = None
+    db: Session, company: Company, event_id: Optional[int] = None, use_ai: bool = False
 ) -> list[ImpactAssessment]:
     """Generate assessments for a company.
 
@@ -446,7 +451,10 @@ def generate_assessments_for_company(
         event = db.query(Event).filter(Event.id == event_id).first()
         if event is None:
             return []
-        return [generate_assessment(db, company, event)]
+        return [generate_assessment(db, company, event, use_ai=use_ai)]
+
+    if use_ai:
+        raise ValueError("Select one event for AI analysis.")
 
     # Events mapped to this company
     mappings = (

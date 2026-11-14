@@ -188,6 +188,72 @@ def generate_assessments(company_id: int, event_id: Optional[int] = None) -> Opt
     return data if isinstance(data, list) else None
 
 
+def generate_ai_assessment(company_id: int, event_id: int) -> Optional[list]:
+    """AI gets a longer timeout than ordinary reads; never silently use baseline."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/api/assessments/generate",
+            json={"company_id": company_id, "event_id": event_id, "use_ai": True}, timeout=75,
+        )
+        if not response.ok:
+            st.error(response.json().get("detail", "AI analysis failed."))
+            return None
+        return response.json()
+    except (requests.RequestException, ValueError):
+        st.error("AI request could not be confirmed. Refresh saved assessments before retrying.")
+        return None
+
+
+def dashboard_ai_impacts(companies: list[dict]) -> None:
+    st.subheader("AI · ผลกระทบรายบริษัท")
+    settings = api_get("/api/analysis/status") or {}
+    ready = settings.get("ready", False)
+    st.caption(f"AI: {settings.get('model') or 'Not configured'} · เรียกวิเคราะห์เฉพาะเมื่อกดปุ่ม ผลลัพธ์เป็นการตีความ ไม่ใช่ข้อเท็จจริงยืนยัน")
+    if not ready:
+        st.info("เปิด AI_ENABLED และตั้ง OPENAI_API_KEY / OPENAI_MODEL ใน .env ของ backend แล้ว restart เพื่อเปิดใช้งาน AI")
+    events = get_events(limit=100)
+    if not companies or not events:
+        st.info("ต้องมีบริษัทและเหตุการณ์ก่อน ไปหน้า Events เพื่อดึงข่าวและประมวลผลเหตุการณ์")
+        return
+    event_by_id = {event['id']: event for event in events}
+    event_id = st.selectbox("ข่าว/เหตุการณ์ที่ต้องการวิเคราะห์", list(event_by_id),
+                            format_func=lambda value: f"#{value} · {event_by_id[value]['title']}")
+    company_by_id = {company['id']: company for company in companies}
+    defaults = [c['id'] for c in companies if c['ticker'] in ('PTT', 'PTTEP', 'AOT', 'IVL')][:4]
+    selected = st.multiselect("บริษัทที่ต้องการเปรียบเทียบ (สูงสุด 4 บริษัท)", list(company_by_id),
+                              default=defaults, max_selections=4,
+                              format_func=lambda value: company_by_id[value]['ticker'])
+    st.caption("วิเคราะห์ได้แม้ข่าวไม่กล่าวถึง ticker โดยตรง ความเกี่ยวข้องทางอ้อมเป็นสมมติฐานของ AI และไม่เปลี่ยน mapping ที่ยืนยันจากข่าว")
+    if st.button("วิเคราะห์ผลกระทบด้วย AI", disabled=not ready or not selected, type="primary"):
+        for company_id in selected:
+            with st.spinner(f"กำลังวิเคราะห์ {company_by_id[company_id]['ticker']}…"):
+                result = generate_ai_assessment(company_id, event_id)
+            if result:
+                st.success(f"บันทึกผล {company_by_id[company_id]['ticker']} แล้ว")
+    for company_id in selected:
+        company = company_by_id[company_id]
+        # API returns newest first. Keep each event's assessment separate.
+        saved = next((a for a in get_company_assessments(company_id)
+                      if a.get('event_id') == event_id and a.get('methodology') == 'llm_openai_v1'), None)
+        with st.container(border=True):
+            st.markdown(f"### {company['ticker']} · {company['name']}")
+            if not saved:
+                st.caption("ยังไม่มีผล AI สำหรับเหตุการณ์นี้")
+                continue
+            cols = st.columns(3)
+            cols[0].metric("Impact", saved.get('impact_type', 'Uncertain'))
+            cols[1].metric("Severity", saved.get('impact_severity', 'Unknown'))
+            confidence = saved.get('confidence')
+            cols[2].metric("Model confidence", f"{confidence:.0%}" if confidence is not None else '—')
+            st.caption(f"{saved.get('methodology')} · {_format_dt(saved.get('assessed_at'))} · ความมั่นใจเป็นการประเมินของโมเดล ไม่ใช่โอกาสได้ผลตอบแทน")
+            st.write(saved.get('explanation'))
+            with st.expander("หลักฐาน ข้อมูลที่ขาด และรายละเอียด"):
+                st.write(saved.get('financial_exposure'))
+                st.json(saved.get('supporting_evidence') or [])
+                st.json(saved.get('missing_information') or [])
+    st.divider()
+
+
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
@@ -271,6 +337,16 @@ def page_dashboard() -> None:
     col1.metric("Total Companies", len(companies))
     col2.metric("Total Industries", len(industries))
     col3.metric("Backend", status_text)
+
+    # Demo flow is local and never calls the configured AI provider.
+    import sys
+    from pathlib import Path
+    root = str(Path(__file__).resolve().parent.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from client.demo_analysis import render_demo
+    if render_demo(companies, get_articles):
+        return
 
     st.subheader("Companies")
     col_sync1, col_sync2 = st.columns([1, 3])
