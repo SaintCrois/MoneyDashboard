@@ -116,6 +116,25 @@ def rank_news(company, articles, limit=8):
     return sorted(ranked, key=lambda item: item["score"], reverse=True)[:limit]
 
 
+def related_companies(title, summary, companies):
+    """Companies whose business keywords appear in one news item.
+
+    Keyword-level and unconfirmed: this is separate from the evidence-backed
+    company associations stored by the backend. The broad "economy" group alone
+    is not enough to list a company.
+    """
+    out = []
+    for company in companies:
+        hit = rank_news(company, [{"id": 0, "title": title or "", "summary": summary or ""}], limit=1)
+        if not hit:
+            continue
+        item = hit[0]
+        if item["score"] < 10 and set(item["groups"]) <= {"economy"}:
+            continue
+        out.append({"ticker": company.get("ticker"), "name": company.get("name"), "reason": item["reason"]})
+    return out
+
+
 def show_news(items):
     for index, item in enumerate(items, 1):
         article = item["article"]

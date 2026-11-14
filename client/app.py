@@ -617,6 +617,13 @@ def page_events() -> None:
         if not filtered_events:
             st.info("No events match your search.")
         else:
+            import sys
+            from pathlib import Path
+            root = str(Path(__file__).resolve().parent.parent)
+            if root not in sys.path:
+                sys.path.insert(0, root)
+            from client.demo_analysis import related_companies as _related_companies
+            all_companies = get_companies()
             for e in filtered_events[:20]:
                 with st.container():
                     st.markdown(f"### {e.get('title', 'Untitled Event')}")
@@ -684,6 +691,16 @@ def page_events() -> None:
                                     st.warning("Low-confidence association: must not be treated as confirmed (shown only if present).")
                         else:
                             st.caption("No sufficiently supported company associations. (Low/uncertain matches remain unassigned.)")
+                        # Keyword-level view, kept apart from the evidence-backed list above.
+                        confirmed = {cm.get("ticker") for cm in companies_map or []}
+                        indirect = [
+                            r for r in _related_companies(e.get("title"), e.get("description"), all_companies)
+                            if r["ticker"] not in confirmed
+                        ]
+                        if indirect:
+                            st.markdown("**อาจเกี่ยวข้องทางอ้อม (จับจากคำในหมวดธุรกิจ ยังไม่ยืนยัน)**")
+                            for r in indirect:
+                                st.caption(f"{r['ticker']} · {r['reason']}")
                     st.divider()
     else:
         st.info("No events detected yet. Use 'Process Events' to create events from articles.")
