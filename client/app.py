@@ -6,6 +6,7 @@ PostgreSQL directly.
 """
 
 import os
+import time
 from typing import Any, Optional
 
 import requests
@@ -16,6 +17,21 @@ load_dotenv()
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
 REQUEST_TIMEOUT = 10
+READ_TIMEOUT = 3
+
+
+def _read_cache():
+    """Keep short-lived reads per browser session; plain helper tests stay stateless."""
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    if get_script_run_ctx(suppress_warning=True) is None:
+        return None
+    return st.session_state.setdefault("api_read_cache", {})
+
+
+def clear_api_read_cache() -> None:
+    cache = _read_cache()
+    if cache is not None:
+        cache.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -24,18 +40,30 @@ REQUEST_TIMEOUT = 10
 
 def api_get(path: str, params: Optional[dict] = None) -> Optional[dict]:
     """Make a GET request to the backend, returning None on failure."""
+    cache = _read_cache()
+    key = (BACKEND_URL, path, tuple(sorted((params or {}).items())))
+    now = time.monotonic()
+    if cache is not None and key in cache:
+        expires, payload = cache[key]
+        if now < expires:
+            return payload
     try:
         response = requests.get(
-            f"{BACKEND_URL}{path}", params=params, timeout=REQUEST_TIMEOUT
+            f"{BACKEND_URL}{path}", params=params, timeout=READ_TIMEOUT
         )
         response.raise_for_status()
-        return response.json()
+        payload = response.json()
     except Exception:
-        return None
+        payload = None
+    if cache is not None:
+        ttl = 2 if payload is None else (5 if path == "/health" else 30)
+        cache[key] = (time.monotonic() + ttl, payload)
+    return payload
 
 
 def api_post(path: str, json: Optional[dict] = None) -> Optional[dict]:
     """Make a POST request to the backend, returning None on failure."""
+    clear_api_read_cache()
     try:
         response = requests.post(
             f"{BACKEND_URL}{path}", json=json, timeout=REQUEST_TIMEOUT
@@ -381,6 +409,7 @@ def page_events() -> None:
                 st.error("Event processing failed.")
     with col_refresh:
         if st.button("Refresh", help="Reload articles and events"):
+            clear_api_read_cache()
             st.rerun()
 
     # ---- Per-source ingestion results & health summary ----
@@ -622,7 +651,7 @@ def main() -> None:
         st.divider()
         page = st.radio(
             "Navigation",
-            ["Dashboard", "Events", "Companies", "Analysis"],
+            ["Dashboard", "Events", "Companies"],
             index=0,
         )
         st.divider()
@@ -631,6 +660,7 @@ def main() -> None:
         status_text = "Connected" if backend_ok else "Unavailable"
         st.markdown(f"Backend: :{status_color}[{status_text}]")
         if st.button("Refresh Backend Status"):
+            clear_api_read_cache()
             st.rerun()
 
     if page == "Dashboard":

@@ -88,6 +88,11 @@ def show_news(items):
             st.link_button(f"อ่านข่าวต้นทาง #{index}", url)
 
 
+def _back_to_selection():
+    st.session_state.pop("demo_analysis", None)
+
+
+@st.fragment
 def render_demo(companies, load_articles):
     st.subheader("วิเคราะห์ผลกระทบต่อบริษัท · Demo")
     st.info(NOTICE)
@@ -113,9 +118,7 @@ def render_demo(companies, load_articles):
         st.caption("ไม่มีการคำนวณราคาหุ้น ผลตอบแทน หรือคะแนนความมั่นใจของ AI ในเดโมนี้")
         with st.expander("ข่าวที่ใช้ประกอบการสาธิต", expanded=True):
             show_news(items)
-        if st.button("← กลับไปเลือกบริษัท", key="demo_back"):
-            del st.session_state["demo_analysis"]
-            st.rerun()
+        st.button("← กลับไปเลือกบริษัท", key="demo_back", on_click=_back_to_selection)
         return True
 
     if not companies:
@@ -145,5 +148,6 @@ def render_demo(companies, load_articles):
                 progress.progress(percent, text=label)
             status.update(label="ประมวลผลเดโมเสร็จแล้ว", state="complete")
         st.session_state["demo_analysis"]["stage"] = "summary"
+        # Complete the transition once; ordinary demo interactions stay in this fragment.
         st.rerun()
     return False
