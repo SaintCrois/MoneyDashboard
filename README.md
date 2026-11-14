@@ -1,5 +1,69 @@
 # AI Investment Impact Radar
 
+## Dashboard demo (no AI API required)
+
+On Dashboard, select a company and click **ประมวลผล (Demo)**. The app loads up
+to 100 recent stored news articles and ranks them locally using company/ticker,
+industry, and business keyword matches. Exact normalized headline duplicates are
+removed; at most eight matching articles are shown. This is a keyword shortlist,
+not semantic analysis or an exhaustive search of the database.
+
+The processing panel lists the shortlisted news, explicitly says no real AI is
+used, and displays approximately two seconds of simulated progress. It then
+opens a summary view with prepared, conditional impact scenarios, the matching
+news, and items to verify. The back button returns to company selection. No
+provider call, key, token charge, or assessment database write occurs in this
+flow. An empty/unavailable news feed or no matching articles is reported without
+fabricating news or results. The result snapshot stays only in Streamlit session
+state; it is separate from actual assessments. News is still collected through
+the existing backend on Events.
+
+## Optional AI assessment API
+
+The optional backend AI analysis uses the OpenAI Responses API with validated structured output.
+Existing baseline endpoints remain rule-based unless `use_ai: true` is requested.
+
+In the backend `.env`, configure:
+
+```dotenv
+AI_ENABLED=true
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=your_supported_model
+```
+
+Choose a model available to your API account that supports Responses Structured
+Outputs, then restart FastAPI. No additional Python package or schema migration
+is needed for this feature. Never commit the key. AI is disabled by default.
+
+Real AI is available only through an explicit API request (see below); Dashboard
+now uses the local demo journey. Each AI company/event request is potentially
+billable. Saved AI results are labelled `llm_openai_v1` and can be inspected through
+the API or existing Analysis assessment view.
+
+The provider receives the selected article excerpt, company profile and stored
+financial/market summaries. Requests disable provider response storage with
+`store: false`. The complete input snapshot and model name are retained locally.
+No real API call is made by the automated tests.
+
+AI can examine indirect exposure without a pre-existing ticker mapping. These
+interpretations do not create or overwrite evidence-based EventCompany mappings.
+Missing company business descriptions (including the initial seed profiles) limit
+how specifically the model can explain exposure; populate `Company.description`
+and its `source` from verified business disclosures for useful segment analysis.
+No financial or price data is invented to fill missing inputs. Model confidence
+is subjective, not a calibrated probability. This is research assistance.
+
+Provider timeout, refusal, invalid output, and unknown evidence references return
+a clear error without saving a baseline result as AI. Check existing saved results
+before retrying a client timeout.
+
+API: `GET /api/analysis/status` returns readiness without secrets.
+`POST /api/assessments/generate` accepts
+`{"company_id": 1, "event_id": 2, "use_ai": true}`. AI requires one explicit
+event; bulk background inference and automatic re-analysis are not enabled.
+
+Reference: https://developers.openai.com/api/docs/guides/structured-outputs
+
 From Global Events to Investment Insights.
 
 An AI-powered investment research platform that monitors global and local events,
