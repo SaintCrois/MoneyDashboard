@@ -328,7 +328,8 @@ h1 {
 
 /* ---------- Device preview switch ---------- */
 
-.device-switch {
+.device-switch,
+.segment {
   display: grid;
   grid-template-columns: 1fr 1fr;
   padding: 3px;
@@ -336,7 +337,8 @@ h1 {
   background: var(--gray);
 }
 
-.device-switch button {
+.device-switch button,
+.segment button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -352,7 +354,8 @@ h1 {
   transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 
-.device-switch button[aria-pressed="true"] {
+.device-switch button[aria-pressed="true"],
+.segment button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;
@@ -1101,6 +1104,31 @@ h1 {
   margin-bottom: 16px;
 }
 
+.filters-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+/* Which news to show: three fixed choices in one pill. */
+.segment {
+  grid-template-columns: repeat(3, auto);
+  justify-self: start;
+}
+
+.segment button {
+  padding: 7px 16px;
+  font-size: 0.875rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .segment button[aria-pressed="false"]:hover {
+    color: var(--ink);
+  }
+}
+
 .filter-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1130,27 +1158,6 @@ h1 {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--on-primary);
-}
-
-.checks-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-}
-
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
-  color: var(--ink-2);
-  cursor: pointer;
-}
-
-.check input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
 }
 
 .feed {
@@ -1381,10 +1388,6 @@ h1 {
   }
   .feed {
     padding: 0 24px;
-  }
-  .filters {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
   }
 }
 

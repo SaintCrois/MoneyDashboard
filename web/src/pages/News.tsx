@@ -3,11 +3,19 @@ import { api, formatDate, safeUrl, type Level } from "../api";
 import { useLoad } from "../hooks";
 import { ErrorState, Headline, Skeleton } from "./shared";
 
+type Scope = "all" | "related" | "mine";
+
+const SCOPES: { key: Scope; label: string }[] = [
+  { key: "related", label: "โยงกับหุ้นได้" },
+  { key: "mine", label: "หุ้นที่ฉันถือ" },
+  { key: "all", label: "ทุกข่าว" },
+];
+
 export function NewsPage({ level, holdings }: { level: Level; holdings: string[] }) {
   const [state, reload] = useLoad(() => Promise.all([api.feed(level), api.groups()]), [level]);
   const [group, setGroup] = useState<string>("all");
-  const [mine, setMine] = useState(false);
-  const [relatedOnly, setRelatedOnly] = useState(true);
+  // One choice with three states: every news item, items linked to any stock, items linked to stocks I hold.
+  const [scope, setScope] = useState<Scope>("related");
 
   return (
     <>
@@ -24,13 +32,23 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
         (() => {
           const [feed, groups] = state.data;
           const shown = feed.items.filter((it) => {
-            const cs = mine ? it.companies.filter((c) => holdings.includes(c.ticker)) : it.companies;
-            if ((mine || relatedOnly) && cs.length === 0) return false;
+            const cs = scope === "mine" ? it.companies.filter((c) => holdings.includes(c.ticker)) : it.companies;
+            if (scope !== "all" && cs.length === 0) return false;
             return group === "all" || cs.some((c) => c.groups.includes(group));
           });
           return (
             <>
               <div className="filters">
+                <div className="filters-top">
+                  <div className="segment" role="group" aria-label="ข่าวที่แสดง">
+                    {SCOPES.map((s) => (
+                      <button key={s.key} type="button" aria-pressed={scope === s.key} onClick={() => setScope(s.key)}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="status">{shown.length} ข่าว</span>
+                </div>
                 <div className="filter-chips" role="group" aria-label="กรองตามหมวดธุรกิจ">
                   <button type="button" aria-pressed={group === "all"} onClick={() => setGroup("all")}>
                     ทุกหมวด
@@ -40,16 +58,6 @@ export function NewsPage({ level, holdings }: { level: Level; holdings: string[]
                       {g.label}
                     </button>
                   ))}
-                </div>
-                <div className="checks-row">
-                  <label className="check">
-                    <input type="checkbox" checked={relatedOnly} onChange={(e) => setRelatedOnly(e.target.checked)} />
-                    เฉพาะข่าวที่โยงกับหุ้นได้
-                  </label>
-                  <label className="check">
-                    <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
-                    เฉพาะหุ้นที่ฉันถือ
-                  </label>
                 </div>
               </div>
 
