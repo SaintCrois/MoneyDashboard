@@ -68,11 +68,11 @@ export function HoldingsPage({ level, holdings, onHoldings }: Props) {
                 </div>
               ) : (
                 <ul className="holdings">
-                  {held.map(({ company, count, direct_count, top }) => (
+                  {held.map(({ company, count, direct_count, top }, i) => (
                     <li key={company.ticker}>
                       <a className="holding" href={`#/stock/${company.ticker}`}>
                         <span className="holding-id">
-                          <strong>{company.ticker}</strong>
+                          <strong className={i % 2 ? "tile tile-b" : "tile"}>{company.ticker}</strong>
                           <span>{industryLabel(company)}</span>
                         </span>
                         <span className="holding-body">

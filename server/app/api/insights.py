@@ -66,6 +66,7 @@ def _item(n: int, ranked: dict) -> dict:
         "article": ranked["article"],
         "direct": ranked["score"] >= 10,
         "groups": ranked["groups"],
+        "terms": ranked.get("matches", {}),
         "reason": ranked["reason"],
     }
 

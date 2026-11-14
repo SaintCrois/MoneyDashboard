@@ -29,6 +29,7 @@ export interface InsightItem {
   article: Article;
   direct: boolean;
   groups: string[];
+  terms: Record<string, string[]>;
   reason: string;
 }
 
@@ -106,6 +107,13 @@ export function formatDate(iso: string | null): string {
   if (!iso) return "ไม่ทราบวันที่";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "ไม่ทราบวันที่" : dateFmt.format(d);
+}
+
+/** Today as a photo-booth date stamp: 14.11.26 */
+export function stampDate(): string {
+  const d = new Date();
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(d.getDate())}.${two(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)}`;
 }
 
 export function safeUrl(url: string): string | null {

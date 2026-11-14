@@ -143,7 +143,7 @@ def rank_news(company, articles, limit=8, level="loose"):
         seen.add(identity)
         score = (10 if direct else 0) + sum(min(len(terms), 3) for terms in matches.values())
         reasons = (["พบชื่อบริษัทหรือ ticker"] if direct else []) + ["คำที่เกี่ยวข้อง: " + ", ".join(terms) for terms in matches.values()]
-        ranked.append({"article": dict(article), "score": score, "groups": list(matches), "reason": " · ".join(reasons)})
+        ranked.append({"article": dict(article), "score": score, "groups": list(matches), "matches": matches, "reason": " · ".join(reasons)})
     return sorted(ranked, key=lambda item: item["score"], reverse=True)[:limit]
 
 
