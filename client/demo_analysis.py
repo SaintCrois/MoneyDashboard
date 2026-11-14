@@ -71,7 +71,25 @@ def contains(text, term):
     return term in text
 
 
-def rank_news(company, articles, limit=8):
+# How strict the keyword link between a news item and a company must be.
+MATCH_LEVELS = {
+    "strict": "เข้ม: ข่าวต้องเอ่ยชื่อย่อหุ้นหรือชื่อบริษัท",
+    "medium": "กลาง: เอ่ยชื่อ หรือมีคำในหมวดธุรกิจของบริษัทอย่างน้อย 2 คำ",
+    "loose": "หลวม: เอ่ยชื่อ หรือมีคำที่เกี่ยวข้องอย่างน้อย 1 คำ (รวมคำเศรษฐกิจทั่วไป)",
+}
+
+
+def passes_level(direct, matches, level):
+    if direct:
+        return True
+    if level == "strict":
+        return False
+    if level == "medium":
+        return sum(len(terms) for group, terms in matches.items() if group != "economy") >= 2
+    return bool(matches)
+
+
+def rank_news(company, articles, limit=8, level="loose"):
     """Deterministic shortlist; no language model, sentiment inference or random scores."""
     ticker = (company.get("ticker") or "").lower()
     profile = " ".join(str(company.get(k) or "") for k in ("industry_name", "sector", "description")).lower()
@@ -107,7 +125,7 @@ def rank_news(company, articles, limit=8):
         matches = {group: [term for term in SCENARIOS[group]["terms"] if contains(text, term)]
                    for group in sorted(groups)}
         matches = {group: terms for group, terms in matches.items() if terms}
-        if not direct and not matches:
+        if not passes_level(direct, matches, level):
             continue
         seen.add(identity)
         score = (10 if direct else 0) + sum(min(len(terms), 3) for terms in matches.values())
@@ -116,21 +134,18 @@ def rank_news(company, articles, limit=8):
     return sorted(ranked, key=lambda item: item["score"], reverse=True)[:limit]
 
 
-def related_companies(title, summary, companies):
+def related_companies(title, summary, companies, level="medium"):
     """Companies whose business keywords appear in one news item.
 
     Keyword-level and unconfirmed: this is separate from the evidence-backed
-    company associations stored by the backend. The broad "economy" group alone
-    is not enough to list a company.
+    company associations stored by the backend. ``level`` is one of MATCH_LEVELS.
     """
     out = []
     for company in companies:
-        hit = rank_news(company, [{"id": 0, "title": title or "", "summary": summary or ""}], limit=1)
+        hit = rank_news(company, [{"id": 0, "title": title or "", "summary": summary or ""}], limit=1, level=level)
         if not hit:
             continue
         item = hit[0]
-        if item["score"] < 10 and set(item["groups"]) <= {"economy"}:
-            continue
         out.append({"ticker": company.get("ticker"), "name": company.get("name"), "reason": item["reason"]})
     return out
 
@@ -188,7 +203,7 @@ def render_demo(companies, load_articles):
         if not articles:
             st.warning("ยังไม่มีข่าวหรือโหลดข่าวไม่สำเร็จ ไปหน้า Events เพื่อดึงข่าวก่อน แล้วลองอีกครั้ง")
             return False
-        items = rank_news(lookup[company_id], articles)
+        items = rank_news(lookup[company_id], articles, level=st.session_state.get("match_level", "loose"))
         if not items:
             st.info("ไม่พบข่าวที่เกี่ยวข้องจากคำสำคัญในชุดที่โหลด ลองเลือกบริษัทอื่นหรือเพิ่มข่าว ระบบจะไม่สร้างผลกระทบขึ้นมาเอง")
             return False

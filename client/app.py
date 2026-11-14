@@ -694,7 +694,8 @@ def page_events() -> None:
                         # Keyword-level view, kept apart from the evidence-backed list above.
                         confirmed = {cm.get("ticker") for cm in companies_map or []}
                         indirect = [
-                            r for r in _related_companies(e.get("title"), e.get("description"), all_companies)
+                            r for r in _related_companies(e.get("title"), e.get("description"), all_companies,
+                                                            level=st.session_state.get("match_level", "medium"))
                             if r["ticker"] not in confirmed
                         ]
                         if indirect:
@@ -998,6 +999,23 @@ def main() -> None:
         status_color = "green" if backend_ok else "red"
         status_text = "Connected" if backend_ok else "Unavailable"
         st.markdown(f"Backend: :{status_color}[{status_text}]")
+        st.divider()
+        import sys
+        from pathlib import Path
+        _root = str(Path(__file__).resolve().parent.parent)
+        if _root not in sys.path:
+            sys.path.insert(0, _root)
+        from client.demo_analysis import MATCH_LEVELS
+        st.select_slider(
+            "ความเข้มของการจับคู่ข่าวกับหุ้น",
+            options=list(MATCH_LEVELS),
+            value="medium",
+            format_func=lambda k: {"strict": "เข้ม", "medium": "กลาง", "loose": "หลวม"}[k],
+            key="match_level",
+            help="ใช้กับเดโมในหน้า Dashboard และรายการ 'อาจเกี่ยวข้องทางอ้อม' ในหน้า Events",
+        )
+        st.caption(MATCH_LEVELS[st.session_state.get("match_level", "medium")])
+        st.divider()
         if st.button("Refresh Backend Status"):
             st.rerun()
 
